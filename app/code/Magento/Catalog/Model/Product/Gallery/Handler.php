@@ -224,7 +224,7 @@ class Handler
      *
      * @param Product $product
      * @return $this
-     * @throws NoSuchEntityException
+     * @throws NoSuchEntityException|LocalizedException
      * @since 101.0.0 // 31121
      */
     protected function duplicate($product)
