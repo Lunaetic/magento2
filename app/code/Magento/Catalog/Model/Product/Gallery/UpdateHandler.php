@@ -75,16 +75,16 @@ class UpdateHandler extends Handler implements ExtensionInterface
     /**
      * Execute update handler
      *
-     * @param object $product
+     * @param ProductInterface $product
      * @param array $arguments
-     * @return object
+     * @return ProductInterface
      * @throws LocalizedException
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      * @SuppressWarnings(PHPMD.NPathComplexity)
      * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      * @since 101.0.0
      */
-    public function execute($product, $arguments = []): object
+    public function execute($product, $arguments = [])
     {
         $attrCode = $this->getAttribute()->getAttributeCode();
 
