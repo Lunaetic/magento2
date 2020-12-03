@@ -347,7 +347,7 @@ class UpdateHandler extends Handler implements ExtensionInterface
         if ($images) {
             $values = $this->attributeValue->getValues(
                 ProductInterface::class,
-                $product->getData($this->metadata->getLinkField()),
+                (int)$product->getData($this->metadata->getLinkField()),
                 $this->mediaConfig->getMediaAttributeCodes()
             );
             $valuesToDelete = [];

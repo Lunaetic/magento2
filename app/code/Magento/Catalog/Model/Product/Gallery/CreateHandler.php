@@ -52,25 +52,15 @@ class CreateHandler extends Handler implements ExtensionInterface
             $value['images'] = [];
         }
 
-        $clearImages = [];
         $newImages = [];
-        $existImages = [];
 
         if ($product->getIsDuplicate() != true) {
             foreach ($value['images'] as &$image) {
-                if (!empty($image['removed']) && !$this->canRemoveImage($product, $image['file'])) {
-                    $image['removed'] = '';
-                }
-
-                if (!empty($image['removed'])) {
-                    $clearImages[] = $image['file'];
-                } elseif (empty($image['value_id']) || !empty($image['recreate'])) {
+                if (empty($image['value_id']) || !empty($image['recreate'])) {
                     $newFile = $this->moveImageFromTmp($image['file']);
                     $image['new_file'] = $newFile;
                     $newImages[$image['file']] = $image;
                     $image['file'] = $newFile;
-                } else {
-                    $existImages[$image['file']] = $image;
                 }
             }
         } else {
@@ -84,6 +74,7 @@ class CreateHandler extends Handler implements ExtensionInterface
                 if (empty($image['value_id']) || !empty($image['removed'])) {
                     continue;
                 }
+
                 $duplicate[$image['value_id']] = $this->copyImage($image['file']);
                 $image['new_file'] = $duplicate[$image['value_id']];
                 $newImages[$image['file']] = $image;
@@ -93,7 +84,7 @@ class CreateHandler extends Handler implements ExtensionInterface
         }
 
         if (!empty($value['images'])) {
-            $this->processMediaAttributes($product, $existImages, $newImages, $clearImages);
+            $this->processMediaAttributes($product, [], $newImages, []);
         }
 
         $product->setData($attrCode, $value);
@@ -107,7 +98,7 @@ class CreateHandler extends Handler implements ExtensionInterface
             return $product;
         }
 
-        $this->processNewAndExistingImages($product, $value['images']);
+        $this->processNewImages($product, $newImages);
 
         $product->setData($attrCode, $value);
 
@@ -123,30 +114,21 @@ class CreateHandler extends Handler implements ExtensionInterface
      * @throws NoSuchEntityException
      * @since 101.0.0 // 31121
      */
-    protected function processNewAndExistingImages($product, array &$images)
+    protected function processNewImages($product, array &$images)
     {
         foreach ($images as &$image) {
-            if (empty($image['removed'])) {
-                $data = $this->processNewImage($product, $image);
+            $data = $this->processNewImage($product, $image);
 
-                if (!$product->isObjectNew()) {
-                    $this->resourceModel->deleteGalleryValueInStore(
-                        $image['value_id'],
-                        $product->getData($this->metadata->getLinkField()),
-                        $product->getStoreId()
-                    );
-                }
-                // Add per store labels, position, disabled
-                $data['value_id'] = $image['value_id'];
-                $data['label'] = isset($image['label']) ? $image['label'] : '';
-                $data['position'] = isset($image['position']) ? (int)$image['position'] : 0;
-                $data['disabled'] = isset($image['disabled']) ? (int)$image['disabled'] : 0;
-                $data['store_id'] = (int)$product->getStoreId();
+            // Add per store labels, position, disabled
+            $data['value_id'] = $image['value_id'];
+            $data['label'] = isset($image['label']) ? $image['label'] : '';
+            $data['position'] = isset($image['position']) ? (int)$image['position'] : 0;
+            $data['disabled'] = isset($image['disabled']) ? (int)$image['disabled'] : 0;
+            $data['store_id'] = (int)$product->getStoreId();
 
-                $data[$this->metadata->getLinkField()] = (int)$product->getData($this->metadata->getLinkField());
+            $data[$this->metadata->getLinkField()] = (int)$product->getData($this->metadata->getLinkField());
 
-                $this->resourceModel->insertGalleryValueInStore($data);
-            }
+            $this->resourceModel->insertGalleryValueInStore($data);
         }
     }
 
