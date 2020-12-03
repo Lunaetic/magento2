@@ -11,7 +11,6 @@ use Exception;
 use Magento\Catalog\Api\Data\ProductAttributeInterface;
 use Magento\Catalog\Api\Data\ProductInterface;
 use Magento\Catalog\Api\ProductAttributeRepositoryInterface;
-use Magento\Catalog\Model\Product;
 use Magento\Catalog\Model\Product\Media\Config;
 use Magento\Catalog\Model\ResourceModel\Product\Gallery;
 use Magento\Framework\App\Filesystem\DirectoryList;
