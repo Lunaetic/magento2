@@ -188,7 +188,7 @@ class Handler
      * @throws LocalizedException
      * @since 101.0.0 // 31121
      */
-    protected function copyImage($file): string
+    protected function copyImage(string $file): string
     {
         try {
             $destinationFile = $this->getUniqueFileName($file);
@@ -224,13 +224,13 @@ class Handler
     /**
      * Duplicate attribute
      *
-     * @param Product $product
+     * @param ProductInterface $product
      * @return void
      * @throws NoSuchEntityException
      * @throws LocalizedException
      * @since 101.0.0 // 31121
      */
-    protected function duplicate($product): void
+    protected function duplicate(ProductInterface $product): void
     {
         $mediaGalleryData = $product->getData(
             $this->getAttribute()->getAttributeCode()
@@ -253,7 +253,7 @@ class Handler
      * @throws NoSuchEntityException
      * @since 101.0.0 // 31121
      */
-    public function getAttribute()
+    public function getAttribute(): ProductAttributeInterface
     {
         if (!$this->attribute) {
             $this->attribute = $this->attributeRepository->get(
@@ -271,7 +271,7 @@ class Handler
      * @return string
      * @since 101.0.0 // 31121
      */
-    protected function getFilenameFromTmp($file)
+    protected function getFilenameFromTmp(string $file): string
     {
         return strrpos($file, '.tmp') == strlen($file) - 4 ? substr($file, 0, strlen($file) - 4) : $file;
     }
@@ -311,13 +311,16 @@ class Handler
     /**
      * Get media attribute value for store view
      *
-     * @param Product $product
+     * @param ProductInterface $product
      * @param string $attributeCode
      * @param int|null $storeId
      * @return string|null
      */
-    private function getMediaAttributeStoreValue(Product $product, string $attributeCode, int $storeId = null): ?string
-    {
+    private function getMediaAttributeStoreValue(
+        ProductInterface $product,
+        string $attributeCode,
+        int $storeId = null
+    ): ?string {
         $gallery = $this->getImagesForAllStores($product);
         $storeId = $storeId === null ? (int) $product->getStoreId() : $storeId;
 
@@ -336,7 +339,7 @@ class Handler
      * @param string $file
      * @return string
      */
-    protected function getSafeFilename($file): string
+    protected function getSafeFilename(string $file): string
     {
         $file = DIRECTORY_SEPARATOR . ltrim($file, DIRECTORY_SEPARATOR);
 
@@ -351,7 +354,7 @@ class Handler
      * @return string
      * @since 101.0.0 // 31121
      */
-    protected function getUniqueFileName($file, $forTmp = false): string
+    protected function getUniqueFileName(string $file, $forTmp = false): string
     {
         if ($this->fileStorageDb->checkDbUsage()) {
             $destFile = $this->fileStorageDb->getUniqueFilename(
@@ -377,7 +380,7 @@ class Handler
      * @throws FileSystemException
      * @since 101.0.0 // 31121
      */
-    protected function moveImageFromTmp($file): string
+    protected function moveImageFromTmp(string $file): string
     {
         $file = $this->getFilenameFromTmp($this->getSafeFilename($file));
         $destinationFile = $this->getUniqueFileName($file);
@@ -403,14 +406,14 @@ class Handler
     /**
      * Process media attribute
      *
-     * @param Product $product
+     * @param ProductInterface $product
      * @param string $mediaAttrCode
      * @param array $clearImages
      * @param array $newImages
      * @return void
      */
     private function processMediaAttribute(
-        Product $product,
+        ProductInterface $product,
         string $mediaAttrCode,
         array $clearImages,
         array $newImages
@@ -444,14 +447,14 @@ class Handler
     /**
      * Update media attributes
      *
-     * @param Product $product
+     * @param ProductInterface $product
      * @param array $existImages
      * @param array $newImages
      * @param array $clearImages
      * @return void
      */
     protected function processMediaAttributes(
-        Product $product,
+        ProductInterface $product,
         array $existImages,
         array $newImages,
         array $clearImages
@@ -478,7 +481,7 @@ class Handler
     /**
      * Process media attribute label
      *
-     * @param Product $product
+     * @param ProductInterface $product
      * @param string $mediaAttrCode
      * @param array $clearImages
      * @param array $newImages
@@ -486,7 +489,7 @@ class Handler
      * @return void
      */
     private function processMediaAttributeLabel(
-        Product $product,
+        ProductInterface $product,
         string $mediaAttrCode,
         array $clearImages,
         array $newImages,

@@ -7,7 +7,7 @@ declare(strict_types=1);
 
 namespace Magento\Catalog\Model\Product\Gallery;
 
-use Magento\Catalog\Model\Product;
+use Magento\Catalog\Api\Data\ProductInterface;
 use Magento\Framework\EntityManager\Operation\ExtensionInterface;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
@@ -112,14 +112,14 @@ class CreateHandler extends Handler implements ExtensionInterface
     /**
      * Process images
      *
-     * @param Product $product
+     * @param ProductInterface $product
      * @param array $images
      * @return void
      * @throws NoSuchEntityException
      * @throws LocalizedException
      * @since 101.0.0
      */
-    protected function processNewImages($product, array &$images): void
+    protected function processNewImages(ProductInterface $product, array &$images): void
     {
         foreach ($images as &$image) {
             $data = $this->processNewImage($product, $image);
@@ -140,14 +140,14 @@ class CreateHandler extends Handler implements ExtensionInterface
     /**
      * Processes image as new
      *
-     * @param Product $product
+     * @param ProductInterface $product
      * @param array $image
      * @return array
      * @throws NoSuchEntityException
      * @throws LocalizedException
      * @since 101.0.0
      */
-    protected function processNewImage($product, array &$image): array
+    protected function processNewImage(ProductInterface $product, array &$image): array
     {
         $data = [];
 

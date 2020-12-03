@@ -9,7 +9,6 @@ namespace Magento\Catalog\Model\Product\Gallery;
 
 use Magento\Catalog\Api\Data\ProductInterface;
 use Magento\Catalog\Api\ProductAttributeRepositoryInterface;
-use Magento\Catalog\Model\Product;
 use Magento\Catalog\Model\Product\Media\Config;
 use Magento\Catalog\Model\ResourceModel\Product\Gallery;
 use Magento\Eav\Model\ResourceModel\AttributeValue;
@@ -76,7 +75,7 @@ class UpdateHandler extends Handler implements ExtensionInterface
     /**
      * Execute update handler
      *
-     * @param ProductInterface $product
+     * @param object $product
      * @param array $arguments
      * @return object
      * @throws LocalizedException
@@ -158,14 +157,14 @@ class UpdateHandler extends Handler implements ExtensionInterface
     /**
      * Process deleted images
      *
-     * @param Product $product
+     * @param ProductInterface $product
      * @param array $images
      * @return void
      * @throws FileSystemException
      * @throws LocalizedException
      * @since 101.0.0
      */
-    protected function processDeletedImages($product, array &$images): void
+    protected function processDeletedImages(ProductInterface $product, array &$images): void
     {
         $filesToDelete = [];
         $recordsToDelete = [];
@@ -202,14 +201,14 @@ class UpdateHandler extends Handler implements ExtensionInterface
     /**
      * Process new images
      *
-     * @param Product $product
+     * @param ProductInterface $product
      * @param array $images
      * @return void
      * @throws LocalizedException
      * @throws NoSuchEntityException
      * @since 101.0.0 // 31121
      */
-    protected function processNewImages($product, array &$images): void
+    protected function processNewImages(ProductInterface $product, array &$images): void
     {
         foreach ($images as &$image) {
             $data = $this->processNewImage($product, $image);
@@ -230,12 +229,12 @@ class UpdateHandler extends Handler implements ExtensionInterface
     /**
      * Process existing images, which may or may not need to be updated
      *
-     * @param Product $product
+     * @param ProductInterface $product
      * @param array $images
      * @return void
      * @since 101.0.0 // 31121
      */
-    protected function processExistingImages($product, array &$images): void
+    protected function processExistingImages(ProductInterface $product, array &$images): void
     {
         foreach ($images as &$image) {
             $existingData = $this->resourceModel->loadDataFromTableByValueId(Gallery::GALLERY_VALUE_TABLE, [$image['value_id']], $product->getStoreId());
@@ -275,14 +274,14 @@ class UpdateHandler extends Handler implements ExtensionInterface
     /**
      * Process a new image
      *
-     * @param Product $product
+     * @param ProductInterface $product
      * @param array $image
      * @return array
      * @throws NoSuchEntityException
      * @throws LocalizedException
      * @since 101.0.0
      */
-    protected function processNewImage($product, array &$image): array
+    protected function processNewImage(ProductInterface $product, array &$image): array
     {
         $data = [];
 
@@ -335,11 +334,11 @@ class UpdateHandler extends Handler implements ExtensionInterface
     /**
      * Delete media attributes values for given images
      *
-     * @param Product $product
+     * @param ProductInterface $product
      * @param string[] $images
      * @throws LocalizedException
      */
-    private function deleteMediaAttributeValues(Product $product, array $images): void
+    private function deleteMediaAttributeValues(ProductInterface $product, array $images): void
     {
         if ($images) {
             $values = $this->attributeValue->getValues(
