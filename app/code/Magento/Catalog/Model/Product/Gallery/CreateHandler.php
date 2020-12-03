@@ -25,7 +25,7 @@ class CreateHandler extends Handler implements ExtensionInterface
     /**
      * Execute create handler
      *
-     * @param object $product
+     * @param Product $product
      * @param array $arguments
      * @return object
      * @throws LocalizedException

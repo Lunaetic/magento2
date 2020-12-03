@@ -22,7 +22,7 @@ use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Filesystem\Directory\WriteInterface;
-use Magento\Framework\Json\Helper\Data;
+use Magento\Framework\Serialize\Serializer\Json;
 use Magento\MediaStorage\Helper\File\Storage\Database;
 use Magento\MediaStorage\Model\File\Uploader as FileUploader;
 use Magento\Store\Model\Store;
@@ -65,10 +65,10 @@ class Handler
     protected $resourceModel;
 
     /**
-     * @var Data
+     * @var Json
      * @since 101.0.0 // 31121
      */
-    protected $jsonHelper;
+    protected $json;
 
     /**
      * @var Config
@@ -116,7 +116,7 @@ class Handler
      * @param MetadataPool $metadataPool
      * @param ProductAttributeRepositoryInterface $attributeRepository
      * @param Gallery $resourceModel
-     * @param Data $jsonHelper
+     * @param Json $json
      * @param Config $mediaConfig
      * @param Filesystem $filesystem
      * @param Database $fileStorageDb
@@ -127,7 +127,7 @@ class Handler
         MetadataPool $metadataPool,
         ProductAttributeRepositoryInterface $attributeRepository,
         Gallery $resourceModel,
-        Data $jsonHelper,
+        Json $json,
         Config $mediaConfig,
         Filesystem $filesystem,
         Database $fileStorageDb,
@@ -136,7 +136,7 @@ class Handler
         $this->metadata = $metadataPool->getMetadata(ProductInterface::class);
         $this->attributeRepository = $attributeRepository;
         $this->resourceModel = $resourceModel;
-        $this->jsonHelper = $jsonHelper;
+        $this->json = $json;
         $this->mediaConfig = $mediaConfig;
         $this->mediaDirectory = $filesystem->getDirectoryWrite(DirectoryList::MEDIA);
         $this->fileStorageDb = $fileStorageDb;

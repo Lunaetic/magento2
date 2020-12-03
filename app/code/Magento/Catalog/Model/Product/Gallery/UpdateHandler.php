@@ -19,7 +19,7 @@ use Magento\Framework\EntityManager\Operation\ExtensionInterface;
 use Magento\Framework\Exception\FileSystemException;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Filesystem;
-use Magento\Framework\Json\Helper\Data;
+use Magento\Framework\Serialize\Serializer\Json;
 use Magento\MediaStorage\Helper\File\Storage\Database;
 use Magento\Store\Model\Store;
 use Magento\Store\Model\StoreManagerInterface;
@@ -42,7 +42,7 @@ class UpdateHandler extends Handler implements ExtensionInterface
      * @param MetadataPool $metadataPool
      * @param ProductAttributeRepositoryInterface $attributeRepository
      * @param Gallery $resourceModel
-     * @param Data $jsonHelper
+     * @param Json $json
      * @param Config $mediaConfig
      * @param Filesystem $filesystem
      * @param Database $fileStorageDb
@@ -54,7 +54,7 @@ class UpdateHandler extends Handler implements ExtensionInterface
         MetadataPool $metadataPool,
         ProductAttributeRepositoryInterface $attributeRepository,
         Gallery $resourceModel,
-        Data $jsonHelper,
+        Json $json,
         Config $mediaConfig,
         Filesystem $filesystem,
         Database $fileStorageDb,
@@ -65,7 +65,7 @@ class UpdateHandler extends Handler implements ExtensionInterface
             $metadataPool,
             $attributeRepository,
             $resourceModel,
-            $jsonHelper,
+            $json,
             $mediaConfig,
             $filesystem,
             $fileStorageDb,
@@ -77,7 +77,7 @@ class UpdateHandler extends Handler implements ExtensionInterface
     /**
      * Execute create handler
      *
-     * @param object $product
+     * @param Product $product
      * @param array $arguments
      * @return object
      * @throws LocalizedException
