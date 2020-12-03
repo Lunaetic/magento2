@@ -25,7 +25,7 @@ class CreateHandler extends Handler implements ExtensionInterface
     /**
      * Execute create handler
      *
-     * @param Product $product
+     * @param object $product
      * @param array $arguments
      * @return object
      * @throws LocalizedException
@@ -34,7 +34,7 @@ class CreateHandler extends Handler implements ExtensionInterface
      * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      * @since 101.0.0
      */
-    public function execute($product, $arguments = [])
+    public function execute($product, $arguments = []): object
     {
         $attrCode = $this->getAttribute()->getAttributeCode();
 
@@ -45,7 +45,7 @@ class CreateHandler extends Handler implements ExtensionInterface
         }
 
         if (!is_array($value['images']) && strlen($value['images']) > 0) {
-            $value['images'] = $this->jsonHelper->jsonDecode($value['images']);
+            $value['images'] = $this->json->unserialize($value['images']); // 31121 Would like to validate that the switch here is compatible
         }
 
         if (!is_array($value['images'])) {
@@ -67,7 +67,7 @@ class CreateHandler extends Handler implements ExtensionInterface
                 }
             }
         } else {
-            // For duplicating we need copy original images.
+            // For duplicating we need to copy the original images
             $duplicate = [];
             foreach ($value['images'] as &$image) {
                 if (!empty($image['removed']) && !$this->canRemoveImage($product, $image['file'])) {
@@ -116,9 +116,10 @@ class CreateHandler extends Handler implements ExtensionInterface
      * @param array $images
      * @return void
      * @throws NoSuchEntityException
-     * @since 101.0.0 // 31121
+     * @throws LocalizedException
+     * @since 101.0.0
      */
-    protected function processNewImages($product, array &$images)
+    protected function processNewImages($product, array &$images): void
     {
         foreach ($images as &$image) {
             $data = $this->processNewImage($product, $image);
@@ -137,15 +138,16 @@ class CreateHandler extends Handler implements ExtensionInterface
     }
 
     /**
-     * Processes image as new.
+     * Processes image as new
      *
      * @param Product $product
      * @param array $image
      * @return array
      * @throws NoSuchEntityException
+     * @throws LocalizedException
      * @since 101.0.0
      */
-    protected function processNewImage($product, array &$image)
+    protected function processNewImage($product, array &$image): array
     {
         $data = [];
 

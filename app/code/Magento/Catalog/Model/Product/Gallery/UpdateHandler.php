@@ -18,18 +18,17 @@ use Magento\Framework\EntityManager\MetadataPool;
 use Magento\Framework\EntityManager\Operation\ExtensionInterface;
 use Magento\Framework\Exception\FileSystemException;
 use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\MediaStorage\Helper\File\Storage\Database;
-use Magento\Store\Model\Store;
 use Magento\Store\Model\StoreManagerInterface;
 
 /**
  * Update handler for catalog product gallery.
  *
  * @api
- * @since 101.0.0 // 31121
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) // 31121
+ * @since 101.0.0
  */
 class UpdateHandler extends Handler implements ExtensionInterface
 {
@@ -75,18 +74,18 @@ class UpdateHandler extends Handler implements ExtensionInterface
     }
 
     /**
-     * Execute create handler
+     * Execute update handler
      *
-     * @param Product $product
+     * @param ProductInterface $product
      * @param array $arguments
      * @return object
      * @throws LocalizedException
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter) // 31121
-     * @SuppressWarnings(PHPMD.NPathComplexity) // 31121
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity) // 31121
-     * @since 101.0.0 // 31121
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     * @SuppressWarnings(PHPMD.NPathComplexity)
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
+     * @since 101.0.0
      */
-    public function execute($product, $arguments = [])
+    public function execute($product, $arguments = []): object
     {
         $attrCode = $this->getAttribute()->getAttributeCode();
 
@@ -97,7 +96,7 @@ class UpdateHandler extends Handler implements ExtensionInterface
         }
 
         if (!is_array($value['images']) && strlen($value['images']) > 0) {
-            $value['images'] = $this->jsonHelper->jsonDecode($value['images']);
+            $value['images'] = $this->json->unserialize($value['images']); // 31121 Would like to validate that the switch here is compatible
         }
 
         if (!is_array($value['images'])) {
@@ -157,21 +156,21 @@ class UpdateHandler extends Handler implements ExtensionInterface
     }
 
     /**
-     * Process delete images
+     * Process deleted images
      *
      * @param Product $product
      * @param array $images
      * @return void
      * @throws FileSystemException
      * @throws LocalizedException
-     * @since 101.0.0 // 31121
+     * @since 101.0.0
      */
-    protected function processDeletedImages($product, array &$images)
+    protected function processDeletedImages($product, array &$images): void
     {
         $filesToDelete = [];
         $recordsToDelete = [];
         $imagesToDelete = [];
-        $imagesToNotDelete = [];
+        $imagesToNotDelete = []; // 31121 Due to refactoring, if they've made it here, this check isn't necessary; check below as well!
         foreach ($images as $image) {
             if (empty($image['removed'])) {
                 $imagesToNotDelete[] = $image['file'];
@@ -201,14 +200,16 @@ class UpdateHandler extends Handler implements ExtensionInterface
     }
 
     /**
-     * Process images
+     * Process new images
      *
      * @param Product $product
      * @param array $images
      * @return void
+     * @throws LocalizedException
+     * @throws NoSuchEntityException
      * @since 101.0.0 // 31121
      */
-    protected function processNewImages($product, array &$images)
+    protected function processNewImages($product, array &$images): void
     {
         foreach ($images as &$image) {
             $data = $this->processNewImage($product, $image);
@@ -227,14 +228,14 @@ class UpdateHandler extends Handler implements ExtensionInterface
     }
 
     /**
-     * Process images
+     * Process existing images, which may or may not need to be updated
      *
      * @param Product $product
      * @param array $images
      * @return void
      * @since 101.0.0 // 31121
      */
-    protected function processExistingImages($product, array &$images)
+    protected function processExistingImages($product, array &$images): void
     {
         foreach ($images as &$image) {
             $existingData = $this->resourceModel->loadDataFromTableByValueId(Gallery::GALLERY_VALUE_TABLE, [$image['value_id']], $product->getStoreId());
@@ -262,6 +263,7 @@ class UpdateHandler extends Handler implements ExtensionInterface
      *
      * @param string $file
      * @return bool
+     * @throws LocalizedException
      */
     private function canDeleteImage(string $file): bool
     {
@@ -271,11 +273,16 @@ class UpdateHandler extends Handler implements ExtensionInterface
     }
 
     /**
-     * @inheritdoc
+     * Process a new image
      *
+     * @param Product $product
+     * @param array $image
+     * @return array
+     * @throws NoSuchEntityException
+     * @throws LocalizedException
      * @since 101.0.0
      */
-    protected function processNewImage($product, array &$image)
+    protected function processNewImage($product, array &$image): array
     {
         $data = [];
 
@@ -309,41 +316,20 @@ class UpdateHandler extends Handler implements ExtensionInterface
     }
 
     /**
-     * Retrieve store ids from product.
-     *
-     * @param Product $product
-     * @return array
-     * @since 101.0.0
-     */
-    protected function extractStoreIds($product)
-    {
-        $storeIds = $product->getStoreIds();
-        $storeIds[] = Store::DEFAULT_STORE_ID;
-
-        // Removing current storeId.
-        $storeIds = array_flip($storeIds);
-        unset($storeIds[$product->getStoreId()]);
-        $storeIds = array_keys($storeIds);
-
-        return $storeIds;
-    }
-
-    /**
-     * Remove deleted images.
+     * Remove deleted images
      *
      * @param array $files
-     * @return null
+     * @return void
      * @throws FileSystemException
      * @since 101.0.0
      */
-    protected function removeDeletedImages(array $files)
+    protected function removeDeletedImages(array $files): void
     {
         $catalogPath = $this->mediaConfig->getBaseMediaPath();
 
         foreach ($files as $filePath) {
             $this->mediaDirectory->delete($catalogPath . '/' . $filePath);
         }
-        return null;
     }
 
     /**

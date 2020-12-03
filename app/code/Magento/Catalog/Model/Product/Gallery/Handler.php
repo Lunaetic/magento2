@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Magento\Catalog\Model\Product\Gallery;
 
+use Exception;
 use Magento\Catalog\Api\Data\ProductAttributeInterface;
 use Magento\Catalog\Api\Data\ProductInterface;
 use Magento\Catalog\Api\ProductAttributeRepositoryInterface;
@@ -29,11 +30,10 @@ use Magento\Store\Model\Store;
 use Magento\Store\Model\StoreManagerInterface;
 
 /**
- * Base handler for catalog product gallery
+ * Base handler for catalog product gallery CreateHandler, UpdateHandler
  *
  * @api
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) // 31121
  * @since 101.0.0 // 31121
  */
 class Handler
@@ -116,12 +116,13 @@ class Handler
      * @param MetadataPool $metadataPool
      * @param ProductAttributeRepositoryInterface $attributeRepository
      * @param Gallery $resourceModel
-     * @param Json $json
+     * @param Json $json // 31121 Would like to validate that the switch here is compatible
      * @param Config $mediaConfig
      * @param Filesystem $filesystem
      * @param Database $fileStorageDb
      * @param StoreManagerInterface|null $storeManager
      * @throws FileSystemException
+     * @throws Exception
      */
     public function __construct(
         MetadataPool $metadataPool,
@@ -150,7 +151,7 @@ class Handler
      * @param string $imageFile
      * @return bool
      */
-    protected function canRemoveImage(ProductInterface $product, string $imageFile) :bool
+    protected function canRemoveImage(ProductInterface $product, string $imageFile): bool
     {
         $canRemoveImage = true;
         $gallery = $this->getImagesForAllStores($product);
@@ -158,6 +159,7 @@ class Handler
         $storeIds = [];
         $storeIds[] = 0;
         $websiteIds = array_map('intval', $product->getWebsiteIds() ?? []);
+
         foreach ($this->storeManager->getStores() as $store) {
             if (in_array((int) $store->getWebsiteId(), $websiteIds, true)) {
                 $storeIds[] = (int) $store->getId();
@@ -186,14 +188,14 @@ class Handler
      * @throws LocalizedException
      * @since 101.0.0 // 31121
      */
-    protected function copyImage($file)
+    protected function copyImage($file): string
     {
         try {
             $destinationFile = $this->getUniqueFileName($file);
 
             if (!$this->mediaDirectory->isFile($this->mediaConfig->getMediaPath($file))) {
                 // phpcs:ignore Magento2.Exceptions.DirectThrow
-                throw new \Exception();
+                throw new Exception();
             }
 
             if ($this->fileStorageDb->checkDbUsage()) {
@@ -211,7 +213,7 @@ class Handler
 
             return str_replace('\\', '/', $destinationFile);
             // phpcs:ignore Magento2.Exceptions.ThrowCatch
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $file = $this->mediaConfig->getMediaPath($file);
             throw new LocalizedException(
                 __('We couldn\'t copy file %1. Please delete media with non-existing images and try again.', $file)
@@ -223,28 +225,25 @@ class Handler
      * Duplicate attribute
      *
      * @param Product $product
-     * @return $this
-     * @throws NoSuchEntityException|LocalizedException
+     * @return void
+     * @throws NoSuchEntityException
+     * @throws LocalizedException
      * @since 101.0.0 // 31121
      */
-    protected function duplicate($product)
+    protected function duplicate($product): void
     {
         $mediaGalleryData = $product->getData(
             $this->getAttribute()->getAttributeCode()
         );
 
-        if (!isset($mediaGalleryData['images']) || !is_array($mediaGalleryData['images'])) {
-            return $this;
+        if (isset($mediaGalleryData['images']) && is_array($mediaGalleryData['images'])) {
+            $this->resourceModel->duplicate(
+                $this->getAttribute()->getAttributeId(),
+                $mediaGalleryData['duplicate'] ?? [],
+                $product->getOriginalLinkId(),
+                $product->getData($this->metadata->getLinkField())
+            );
         }
-
-        $this->resourceModel->duplicate(
-            $this->getAttribute()->getAttributeId(),
-            $mediaGalleryData['duplicate'] ?? [],
-            $product->getOriginalLinkId(),
-            $product->getData($this->metadata->getLinkField())
-        );
-
-        return $this;
     }
 
     /**
@@ -283,7 +282,7 @@ class Handler
      * @param ProductInterface $product
      * @return array
      */
-    protected function getImagesForAllStores(ProductInterface $product)
+    protected function getImagesForAllStores(ProductInterface $product): array
     {
         if ($this->imagesGallery ===  null) {
             $storeIds = array_keys($this->storeManager->getStores());
@@ -300,11 +299,12 @@ class Handler
      *
      * @return array
      */
-    protected function getMediaAttributeCodes()
+    protected function getMediaAttributeCodes(): array
     {
         if ($this->mediaAttributeCodes === null) {
             $this->mediaAttributeCodes = $this->mediaConfig->getMediaAttributeCodes();
         }
+
         return $this->mediaAttributeCodes;
     }
 
@@ -320,11 +320,13 @@ class Handler
     {
         $gallery = $this->getImagesForAllStores($product);
         $storeId = $storeId === null ? (int) $product->getStoreId() : $storeId;
+
         foreach ($gallery as $image) {
             if ($image['attribute_code'] === $attributeCode && ((int)$image['store_id']) === $storeId) {
                 return $image['filepath'];
             }
         }
+
         return null;
     }
 
@@ -334,7 +336,7 @@ class Handler
      * @param string $file
      * @return string
      */
-    protected function getSafeFilename($file)
+    protected function getSafeFilename($file): string
     {
         $file = DIRECTORY_SEPARATOR . ltrim($file, DIRECTORY_SEPARATOR);
 
@@ -349,7 +351,7 @@ class Handler
      * @return string
      * @since 101.0.0 // 31121
      */
-    protected function getUniqueFileName($file, $forTmp = false)
+    protected function getUniqueFileName($file, $forTmp = false): string
     {
         if ($this->fileStorageDb->checkDbUsage()) {
             $destFile = $this->fileStorageDb->getUniqueFilename(
@@ -375,7 +377,7 @@ class Handler
      * @throws FileSystemException
      * @since 101.0.0 // 31121
      */
-    protected function moveImageFromTmp($file)
+    protected function moveImageFromTmp($file): string
     {
         $file = $this->getFilenameFromTmp($this->getSafeFilename($file));
         $destinationFile = $this->getUniqueFileName($file);
@@ -405,6 +407,7 @@ class Handler
      * @param string $mediaAttrCode
      * @param array $clearImages
      * @param array $newImages
+     * @return void
      */
     private function processMediaAttribute(
         Product $product,
@@ -445,6 +448,7 @@ class Handler
      * @param array $existImages
      * @param array $newImages
      * @param array $clearImages
+     * @return void
      */
     protected function processMediaAttributes(
         Product $product,
@@ -479,6 +483,7 @@ class Handler
      * @param array $clearImages
      * @param array $newImages
      * @param array $existImages
+     * @return void
      */
     private function processMediaAttributeLabel(
         Product $product,
