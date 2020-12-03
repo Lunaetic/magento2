@@ -107,26 +107,11 @@ class CreateHandler extends Handler implements ExtensionInterface
             return $product;
         }
 
-        $this->processDeletedImages($product, $value['images']);
         $this->processNewAndExistingImages($product, $value['images']);
 
         $product->setData($attrCode, $value);
 
         return $product;
-    }
-
-    /**
-     * Process delete images
-     *
-     * @param Product $product
-     * @param array $images
-     * @return void
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
-     * @since 101.0.0
-     * phpcs:disable Magento2.CodeAnalysis.EmptyBlock
-     */
-    protected function processDeletedImages($product, array &$images)
-    {
     }
 
     /**
