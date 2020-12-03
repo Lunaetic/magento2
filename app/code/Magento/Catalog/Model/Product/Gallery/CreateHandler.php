@@ -54,6 +54,8 @@ class CreateHandler extends Handler implements ExtensionInterface
 
         $newImages = [];
 
+        $imagesNew = [];
+
         if ($product->getIsDuplicate() != true) {
             foreach ($value['images'] as &$image) {
                 if (empty($image['value_id']) || !empty($image['recreate'])) {
@@ -61,6 +63,7 @@ class CreateHandler extends Handler implements ExtensionInterface
                     $image['new_file'] = $newFile;
                     $newImages[$image['file']] = $image;
                     $image['file'] = $newFile;
+                    $imagesNew[] = $image;
                 }
             }
         } else {
@@ -78,6 +81,7 @@ class CreateHandler extends Handler implements ExtensionInterface
                 $duplicate[$image['value_id']] = $this->copyImage($image['file']);
                 $image['new_file'] = $duplicate[$image['value_id']];
                 $newImages[$image['file']] = $image;
+                $imagesNew[] = $image;
             }
 
             $value['duplicate'] = $duplicate;
@@ -98,7 +102,7 @@ class CreateHandler extends Handler implements ExtensionInterface
             return $product;
         }
 
-        $this->processNewImages($product, $newImages);
+        $this->processNewImages($product, $imagesNew);
 
         $product->setData($attrCode, $value);
 

@@ -108,40 +108,28 @@ class UpdateHandler extends Handler implements ExtensionInterface
         $newImages = [];
         $existImages = [];
 
-        if ($product->getIsDuplicate() != true) {
-            foreach ($value['images'] as &$image) {
-                if (!empty($image['removed']) && !$this->canRemoveImage($product, $image['file'])) {
-                    $image['removed'] = '';
-                }
+        $imagesDelete = [];
+        $imagesExist = [];
+        $imagesNew = [];
 
-                if (!empty($image['removed'])) {
-                    $clearImages[] = $image['file'];
-                } elseif (empty($image['value_id']) || !empty($image['recreate'])) {
-                    $newFile = $this->moveImageFromTmp($image['file']);
-                    $image['new_file'] = $newFile;
-                    $newImages[$image['file']] = $image;
-                    $image['file'] = $newFile;
-                } else {
-                    $existImages[$image['file']] = $image;
-                }
+        foreach ($value['images'] as &$image) {
+            if (!empty($image['removed']) && !$this->canRemoveImage($product, $image['file'])) {
+                $image['removed'] = '';
             }
-        } else {
-            // For duplicating we need copy original images.
-            $duplicate = [];
-            foreach ($value['images'] as &$image) {
-                if (!empty($image['removed']) && !$this->canRemoveImage($product, $image['file'])) {
-                    $image['removed'] = '';
-                }
 
-                if (empty($image['value_id']) || !empty($image['removed'])) {
-                    continue;
-                }
-                $duplicate[$image['value_id']] = $this->copyImage($image['file']);
-                $image['new_file'] = $duplicate[$image['value_id']];
+            if (!empty($image['removed'])) {
+                $clearImages[] = $image['file'];
+                $imagesDelete[] = $image;
+            } elseif (empty($image['value_id']) || !empty($image['recreate'])) {
+                $newFile = $this->moveImageFromTmp($image['file']);
+                $image['new_file'] = $newFile;
                 $newImages[$image['file']] = $image;
+                $image['file'] = $newFile;
+                $imagesNew[] = $image;
+            } else {
+                $existImages[$image['file']] = $image;
+                $imagesExist[] = $image;
             }
-
-            $value['duplicate'] = $duplicate;
         }
 
         if (!empty($value['images'])) {
@@ -159,8 +147,9 @@ class UpdateHandler extends Handler implements ExtensionInterface
             return $product;
         }
 
-        $this->processDeletedImages($product, $value['images']);
-        $this->processNewAndExistingImages($product, $value['images']);
+        $this->processDeletedImages($product, $imagesDelete);
+        $this->processNewImages($product, $imagesNew);
+        $this->processExistingImages($product, $imagesExist);
 
         $product->setData($attrCode, $value);
 
@@ -214,34 +203,56 @@ class UpdateHandler extends Handler implements ExtensionInterface
     /**
      * Process images
      *
-     * @param \Magento\Catalog\Model\Product $product
+     * @param Product $product
      * @param array $images
      * @return void
-     * @since 101.0.0
+     * @since 101.0.0 // 31121
      */
-    protected function processNewAndExistingImages($product, array &$images)
+    protected function processNewImages($product, array &$images)
     {
         foreach ($images as &$image) {
-            if (empty($image['removed'])) {
-                $data = $this->processNewImage($product, $image);
+            $data = $this->processNewImage($product, $image);
 
-                if (!$product->isObjectNew()) {
-                    $this->resourceModel->deleteGalleryValueInStore(
-                        $image['value_id'],
-                        $product->getData($this->metadata->getLinkField()),
-                        $product->getStoreId()
-                    );
+            // Add per store labels, position, disabled
+            $data['value_id'] = $image['value_id'];
+            $data['label'] = isset($image['label']) ? $image['label'] : '';
+            $data['position'] = isset($image['position']) ? (int)$image['position'] : 0;
+            $data['disabled'] = isset($image['disabled']) ? (int)$image['disabled'] : 0;
+            $data['store_id'] = (int)$product->getStoreId();
+
+            $data[$this->metadata->getLinkField()] = (int)$product->getData($this->metadata->getLinkField());
+
+            $this->resourceModel->insertGalleryValueInStore($data);
+        }
+    }
+
+    /**
+     * Process images
+     *
+     * @param Product $product
+     * @param array $images
+     * @return void
+     * @since 101.0.0 // 31121
+     */
+    protected function processExistingImages($product, array &$images)
+    {
+        foreach ($images as &$image) {
+            $existingData = $this->resourceModel->loadDataFromTableByValueId(Gallery::GALLERY_VALUE_TABLE, [$image['value_id']], $product->getStoreId());
+
+            if ($existingData) {
+                $existingData = $existingData[0];
+
+                if ($existingData['label'] != $image['label'] ||
+                    $existingData['position'] != $image['position'] ||
+                    $existingData['disabled'] != $image['disabled']) {
+                    // Update per store labels, position, disabled
+                    $existingData['label'] = isset($image['label']) ? $image['label'] : '';
+                    $existingData['position'] = isset($image['position']) ? (int) $image['position'] : 0;
+                    $existingData['disabled'] = isset($image['disabled']) ? (int) $image['disabled'] : 0;
+                    $existingData['store_id'] = (int) $product->getStoreId();
+
+                    $this->resourceModel->updateGalleryValueInStore($existingData);
                 }
-                // Add per store labels, position, disabled
-                $data['value_id'] = $image['value_id'];
-                $data['label'] = isset($image['label']) ? $image['label'] : '';
-                $data['position'] = isset($image['position']) ? (int)$image['position'] : 0;
-                $data['disabled'] = isset($image['disabled']) ? (int)$image['disabled'] : 0;
-                $data['store_id'] = (int)$product->getStoreId();
-
-                $data[$this->metadata->getLinkField()] = (int)$product->getData($this->metadata->getLinkField());
-
-                $this->resourceModel->insertGalleryValueInStore($data);
             }
         }
     }

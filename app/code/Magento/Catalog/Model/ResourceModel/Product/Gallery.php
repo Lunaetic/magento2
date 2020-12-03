@@ -6,8 +6,17 @@
 
 namespace Magento\Catalog\Model\ResourceModel\Product;
 
+use Magento\Catalog\Api\Data\ProductInterface;
+use Magento\Catalog\Model\Product;
 use Magento\Catalog\Model\Product\Media\Config;
 use Magento\Framework\App\ObjectManager;
+use Magento\Framework\DataObject;
+use Magento\Framework\DB\Select;
+use Magento\Framework\EntityManager\EntityMetadata;
+use Magento\Framework\EntityManager\MetadataPool;
+use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Model\ResourceModel\Db\AbstractDb;
+use Magento\Framework\Model\ResourceModel\Db\Context;
 use Magento\Store\Model\Store;
 
 /**
@@ -16,7 +25,7 @@ use Magento\Store\Model\Store;
  * @api
  * @since 101.0.0
  */
-class Gallery extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
+class Gallery extends AbstractDb
 {
     /**#@+
      * Constants defined for keys of  data array
@@ -29,7 +38,7 @@ class Gallery extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
     /**#@-*/
 
     /**
-     * @var \Magento\Framework\EntityManager\EntityMetadata
+     * @var EntityMetadata
      * @since 101.0.0
      */
     protected $metadata;
@@ -39,20 +48,20 @@ class Gallery extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
     private $mediaConfig;
 
     /**
-     * @param \Magento\Framework\Model\ResourceModel\Db\Context $context
-     * @param \Magento\Framework\EntityManager\MetadataPool $metadataPool
+     * @param Context $context
+     * @param MetadataPool $metadataPool
      * @param string $connectionName
      * @param Config|null $mediaConfig
      * @throws \Exception
      */
     public function __construct(
-        \Magento\Framework\Model\ResourceModel\Db\Context $context,
-        \Magento\Framework\EntityManager\MetadataPool $metadataPool,
+        Context $context,
+        MetadataPool $metadataPool,
         $connectionName = null,
         ?Config $mediaConfig = null
     ) {
         $this->metadata = $metadataPool->getMetadata(
-            \Magento\Catalog\Api\Data\ProductInterface::class
+            ProductInterface::class
         );
 
         parent::__construct($context, $connectionName);
@@ -128,9 +137,10 @@ class Gallery extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
     /**
      * Load product gallery by attributeId
      *
-     * @param \Magento\Catalog\Model\Product $product
+     * @param Product $product
      * @param int $attributeId
      * @return array
+     * @throws LocalizedException
      * @since 101.0.0
      */
     public function loadProductGalleryByAttributeId($product, $attributeId)
@@ -154,8 +164,8 @@ class Gallery extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
      * @param int $entityId
      * @param int $storeId
      * @param int $attributeId
-     * @return \Magento\Framework\DB\Select
-     * @throws \Magento\Framework\Exception\LocalizedException
+     * @return Select
+     * @throws LocalizedException
      * @since 101.0.0
      */
     protected function createBaseLoadSelect($entityId, $storeId, $attributeId)
@@ -174,8 +184,8 @@ class Gallery extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
      *
      * @param int $storeId
      * @param int $attributeId
-     * @return \Magento\Framework\DB\Select
-     * @throws \Magento\Framework\Exception\LocalizedException
+     * @return Select
+     * @throws LocalizedException
      * @since 101.0.1
      */
     public function createBatchBaseSelect($storeId, $attributeId)
@@ -236,7 +246,7 @@ class Gallery extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
         )->where(
             $mainTableAlias . '.disabled = 0'
         )->order(
-            $positionCheckSql . ' ' . \Magento\Framework\DB\Select::SQL_ASC
+            $positionCheckSql . ' ' . Select::SQL_ASC
         );
 
         return $select;
@@ -317,12 +327,13 @@ class Gallery extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
      *
      * @param array $data
      * @return int
+     * @throws LocalizedException
      * @since 101.0.0
      */
     public function insertGallery($data)
     {
         $data = $this->_prepareDataForTable(
-            new \Magento\Framework\DataObject($data),
+            new DataObject($data),
             $this->getMainTable()
         );
 
@@ -336,6 +347,7 @@ class Gallery extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
      *
      * @param array|integer $valueId
      * @return $this
+     * @throws LocalizedException
      * @since 101.0.0
      */
     public function deleteGallery($valueId)
@@ -363,13 +375,36 @@ class Gallery extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
     public function insertGalleryValueInStore($data)
     {
         $data = $this->_prepareDataForTable(
-            new \Magento\Framework\DataObject($data),
+            new DataObject($data),
             $this->getTable(self::GALLERY_VALUE_TABLE)
         );
 
         $this->getConnection()->insert(
             $this->getTable(self::GALLERY_VALUE_TABLE),
             $data
+        );
+
+        return $this;
+    }
+
+    /**
+     * Update gallery value for store to Db.
+     *
+     * @param array $data
+     * @return $this
+     * @since 101.0.0 // 31121
+     */
+    public function updateGalleryValueInStore($data)
+    {
+        $data = $this->_prepareDataForTable(
+            new DataObject($data),
+            $this->getTable(self::GALLERY_VALUE_TABLE)
+        );
+
+        $this->getConnection()->update(
+            $this->getTable(self::GALLERY_VALUE_TABLE),
+            $data,
+            ['value_id=?' => $data['value_id']]
         );
 
         return $this;
@@ -411,6 +446,7 @@ class Gallery extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
      * @param int $originalProductId
      * @param int $newProductId
      * @return array
+     * @throws LocalizedException
      * @since 101.0.0
      */
     public function duplicate($attributeId, $newFiles, $originalProductId, $newProductId)
@@ -472,7 +508,7 @@ class Gallery extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
     /**
      * Returns product images in specific stores.
      *
-     * @param \Magento\Catalog\Model\Product $product
+     * @param Product $product
      * @param int|array $storeIds
      * @return array
      * @since 101.0.0
@@ -512,6 +548,7 @@ class Gallery extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
      *
      * @param string $image
      * @return int
+     * @throws LocalizedException
      * @since 101.0.8
      */
     public function countImageUses($image)
