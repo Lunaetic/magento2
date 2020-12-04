@@ -12,9 +12,11 @@ use Magento\Catalog\Model\Product\Attribute\Repository;
 use Magento\Catalog\Model\Product\Gallery\Handler;
 use Magento\Catalog\Model\ResourceModel\Product\Gallery;
 use Magento\Eav\Model\Entity\Attribute;
+use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\EntityManager\EntityMetadata;
 use Magento\Framework\EntityManager\MetadataPool;
 use Magento\Framework\Filesystem;
+use Magento\Framework\Filesystem\Directory\Write;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\MediaStorage\Helper\File\Storage\Database;
 use Magento\Store\Model\StoreManager;
@@ -51,6 +53,11 @@ class HandlerTest extends TestCase
      * @var Config|MockObject
      */
     protected $mediaConfig;
+
+    /**
+     * @var Write|MockObject
+     */
+    protected $mediaDirectory;
 
     /**
      * @var EntityMetadata|MockObject
@@ -95,6 +102,11 @@ class HandlerTest extends TestCase
             Filesystem::class
         );
 
+        $this->filesystem->expects($this->once())
+            ->method('getDirectoryWrite')
+            ->with(DirectoryList::MEDIA)
+            ->willReturn($this->mediaDirectory);
+
         $this->json = $this->createMock(
             Json::class
         );
@@ -105,6 +117,10 @@ class HandlerTest extends TestCase
 
         $this->mediaConfig = $this->createMock(
             Config::class
+        );
+
+        $this->mediaDirectory = $this->createMock(
+            Write::class
         );
 
         $this->metadataPool = $this->createPartialMock(
