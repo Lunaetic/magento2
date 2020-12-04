@@ -9,14 +9,34 @@ namespace Magento\Catalog\Test\Unit\Model\Product\Gallery;
 
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Unit test for Catalog Product Gallery UpdateHandler
+ */
 class UpdateHandlerTest extends TestCase
 {
+    /**
+     * @inheritdoc
+     */
     protected function setUp(): void
     {
     }
 
-    public function testB()
+    /**
+     * @return array
+     */
+    public function validateDataProvider()
     {
-        $this->assertEquals(1, 0);
+        return [
+            [0]
+        ];
+    }
+
+    /**
+     * @param $value
+     * @dataProvider validateDataProvider
+     */
+    public function testExecute($value)
+    {
+        $this->assertEquals(1, $value);
     }
 }
