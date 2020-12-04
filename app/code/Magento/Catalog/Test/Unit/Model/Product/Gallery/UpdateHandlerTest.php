@@ -24,7 +24,7 @@ class UpdateHandlerTest extends TestCase
     /**
      * @return array
      */
-    public function validateDataProvider()
+    public function executeDataProvider()
     {
         return [
             [0]
@@ -33,7 +33,7 @@ class UpdateHandlerTest extends TestCase
 
     /**
      * @param $value
-     * @dataProvider validateDataProvider
+     * @dataProvider executeDataProvider
      */
     public function testExecute($value)
     {
