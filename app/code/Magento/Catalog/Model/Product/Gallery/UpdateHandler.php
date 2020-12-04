@@ -206,7 +206,6 @@ class UpdateHandler extends Handler implements ExtensionInterface
      * @return void
      * @throws LocalizedException
      * @throws NoSuchEntityException
-     * @since 101.0.0 // 31121
      */
     protected function processNewImages(ProductInterface $product, array &$images): void
     {
@@ -232,7 +231,6 @@ class UpdateHandler extends Handler implements ExtensionInterface
      * @param ProductInterface $product
      * @param array $images
      * @return void
-     * @since 101.0.0 // 31121
      */
     protected function processExistingImages(ProductInterface $product, array &$images): void
     {

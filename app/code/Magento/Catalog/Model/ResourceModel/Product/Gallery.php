@@ -391,10 +391,10 @@ class Gallery extends AbstractDb
      * Update gallery value for store to Db.
      *
      * @param array $data
-     * @return $this
-     * @since 101.0.0 // 31121
+     * @return void
+     * @since 101.0.0
      */
-    public function updateGalleryValueInStore($data)
+    public function updateGalleryValueInStore($data): void
     {
         $data = $this->_prepareDataForTable(
             new DataObject($data),
@@ -406,8 +406,6 @@ class Gallery extends AbstractDb
             $data,
             ['value_id=?' => $data['value_id']]
         );
-
-        return $this;
     }
 
     /**

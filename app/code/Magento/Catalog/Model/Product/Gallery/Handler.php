@@ -32,26 +32,21 @@ use Magento\Store\Model\StoreManagerInterface;
  * Base handler for catalog product gallery CreateHandler, UpdateHandler
  *
  * @api
- *
- * @since 101.0.0 // 31121
  */
 class Handler
 {
     /**
      * @var EntityMetadata
-     * @since 101.0.0 // 31121
      */
     protected $metadata;
 
     /**
      * @var ProductAttributeInterface
-     * @since 101.0.0 // 31121
      */
     protected $attribute;
 
     /**
      * @var ProductAttributeRepositoryInterface
-     * @since 101.0.0 // 31121
      */
     protected $attributeRepository;
 
@@ -59,31 +54,26 @@ class Handler
      * Resource model
      *
      * @var Gallery
-     * @since 101.0.0 // 31121
      */
     protected $resourceModel;
 
     /**
      * @var Json
-     * @since 101.0.0 // 31121
      */
     protected $json;
 
     /**
      * @var Config
-     * @since 101.0.0 // 31121
      */
     protected $mediaConfig;
 
     /**
      * @var WriteInterface
-     * @since 101.0.0 // 31121
      */
     protected $mediaDirectory;
 
     /**
      * @var Database
-     * @since 101.0.0 // 31121
      */
     protected $fileStorageDb;
 
@@ -185,7 +175,6 @@ class Handler
      * @param string $file
      * @return string
      * @throws LocalizedException
-     * @since 101.0.0 // 31121
      */
     protected function copyImage(string $file): string
     {
@@ -227,7 +216,6 @@ class Handler
      * @return void
      * @throws NoSuchEntityException
      * @throws LocalizedException
-     * @since 101.0.0 // 31121
      */
     protected function duplicate(ProductInterface $product): void
     {
@@ -250,7 +238,6 @@ class Handler
      *
      * @return ProductAttributeInterface
      * @throws NoSuchEntityException
-     * @since 101.0.0 // 31121
      */
     public function getAttribute(): ProductAttributeInterface
     {
@@ -268,7 +255,6 @@ class Handler
      *
      * @param string $file
      * @return string
-     * @since 101.0.0 // 31121
      */
     protected function getFilenameFromTmp(string $file): string
     {
@@ -351,7 +337,6 @@ class Handler
      * @param string $file
      * @param bool $forTmp
      * @return string
-     * @since 101.0.0 // 31121
      */
     protected function getUniqueFileName(string $file, $forTmp = false): string
     {
@@ -377,7 +362,6 @@ class Handler
      * @param string $file
      * @return string
      * @throws FileSystemException
-     * @since 101.0.0 // 31121
      */
     protected function moveImageFromTmp(string $file): string
     {
