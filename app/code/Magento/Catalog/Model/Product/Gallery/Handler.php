@@ -236,10 +236,9 @@ class Handler
     /**
      * Returns media gallery attribute instance
      *
-     * @return ProductAttributeInterface
      * @throws NoSuchEntityException
      */
-    public function getAttribute(): ProductAttributeInterface
+    public function getAttribute()
     {
         if (!$this->attribute) {
             $this->attribute = $this->attributeRepository->get(
