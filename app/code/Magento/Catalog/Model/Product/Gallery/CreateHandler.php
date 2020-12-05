@@ -8,9 +8,17 @@ declare(strict_types=1);
 namespace Magento\Catalog\Model\Product\Gallery;
 
 use Magento\Catalog\Api\Data\ProductInterface;
+use Magento\Catalog\Api\ProductAttributeRepositoryInterface;
+use Magento\Catalog\Model\Product\Media\Config;
+use Magento\Catalog\Model\ResourceModel\Product\Gallery;
+use Magento\Framework\EntityManager\MetadataPool;
 use Magento\Framework\EntityManager\Operation\ExtensionInterface;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Framework\Filesystem;
+use Magento\Framework\Serialize\Serializer\Json;
+use Magento\MediaStorage\Helper\File\Storage\Database;
+use Magento\Store\Model\StoreManagerInterface;
 
 /**
  * Create handler for catalog product gallery
@@ -22,6 +30,28 @@ use Magento\Framework\Exception\NoSuchEntityException;
  */
 class CreateHandler extends Handler implements ExtensionInterface
 {
+    public function __construct(
+        MetadataPool $metadataPool,
+        ProductAttributeRepositoryInterface $attributeRepository,
+        Gallery $resourceModel,
+        Json $json,
+        Config $mediaConfig,
+        Filesystem $filesystem,
+        Database $fileStorageDb,
+        StoreManagerInterface $storeManager = null
+    ) {
+        parent::__construct(
+            $metadataPool,
+            $attributeRepository,
+            $resourceModel,
+            $json,
+            $mediaConfig,
+            $filesystem,
+            $fileStorageDb,
+            $storeManager
+        );
+    }
+
     /**
      * Execute create handler
      *
