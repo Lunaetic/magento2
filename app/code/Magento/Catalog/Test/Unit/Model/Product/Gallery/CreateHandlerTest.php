@@ -73,7 +73,7 @@ class CreateHandlerTest extends TestCase
     protected $metadataPool;
 
     /**
-     * @var Handler
+     * @var CreateHandler
      */
     protected $model;
 
@@ -163,16 +163,17 @@ class CreateHandlerTest extends TestCase
     public function executeDataProvider()
     {
         return [
-            ['yolo' => 'yolo']
+            [
+                'imageData' => [
+                ]
+            ]
         ];
     }
 
     /**
-     * @param $data
      * @throws LocalizedException
-     * @dataProvider executeDataProvider
      */
-    public function testExecute($data) // 31121 Mocks in dataproviders?
+    public function testExecuteValueNotArray()
     {
         $attributeCode = 'media_gallery';
         $attribute = $this->createPartialMock(
@@ -195,8 +196,100 @@ class CreateHandlerTest extends TestCase
 
         $productMock->expects($this->once())
             ->method('getData')
-            ->with($attributeCode);
+            ->with($attributeCode)
+            ->willReturn(null);
 
-        $this->model->execute($productMock, []);
+        $returnValue = $this->model->execute($productMock, []);
+
+        $this->assertSame($returnValue, $productMock);
+    }
+
+    /**
+     * @throws LocalizedException
+     */
+    public function testExecuteValueNotContainImages()
+    {
+        $attributeCode = 'media_gallery';
+        $attribute = $this->createPartialMock(
+            Attribute::class,
+            ['getAttributeCode']
+        );
+
+        $attribute->expects($this->once())
+            ->method('getAttributeCode')
+            ->willReturn($attributeCode);
+
+        $this->attributeRepository->expects($this->once())
+            ->method('get')
+            ->with($attributeCode)
+            ->willReturn($attribute);
+
+        $productMock = $this->getMockBuilder(Product::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $productMock->expects($this->once())
+            ->method('getData')
+            ->with($attributeCode)
+            ->willReturn(['testKey' => 'testValue']);
+
+        $returnValue = $this->model->execute($productMock, []);
+
+        $this->assertSame($returnValue, $productMock);
+    }
+
+    /**
+     * @throws LocalizedException
+     */
+    public function testExecuteValueContainsJson()
+    {
+        $attributeCode = 'media_gallery';
+        $attribute = $this->createPartialMock(
+            Attribute::class,
+            ['getAttributeCode']
+        );
+
+        $attribute->expects($this->once())
+            ->method('getAttributeCode')
+            ->willReturn($attributeCode);
+
+        $this->attributeRepository->expects($this->once())
+            ->method('get')
+            ->with($attributeCode)
+            ->willReturn($attribute);
+
+        $productMock = $this->getMockBuilder(Product::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $productMock->expects($this->once())
+            ->method('getData')
+            ->with($attributeCode)
+            ->willReturn(['images' => '{"9rm40a2fvqd":{"position":"1","media_type":"image","video_provider":"","file":"\/k\/i\/kitteh_1.jpeg.tmp","value_id":"","label":"","disabled":"0","removed":"","video_url":"","video_title":"","video_description":"","video_metadata":"","role":""}}']);
+
+        $this->json->expects($this->once())
+            ->method('unserialize')
+            ->with('{"9rm40a2fvqd":{"position":"1","media_type":"image","video_provider":"","file":"\/k\/i\/kitteh_1.jpeg.tmp","value_id":"","label":"","disabled":"0","removed":"","video_url":"","video_title":"","video_description":"","video_metadata":"","role":""}}')
+            ->willReturn([
+                "9rm40a2fvqd" => [
+                    "position" => "1",
+                    "media_type" => "image",
+                    "video_provider" => "",
+                    "file" => "\/k\/i\/kitteh_1.jpeg.tmp",
+                    "value_id" => "",
+                    "label" => "",
+                    "disabled" => "0",
+                    "removed" => "",
+                    "video_url" => "",
+                    "video_title" => "",
+                    "video_description" => "",
+                    "video_metadata" => "",
+                    "role" => ""
+                ]
+            ]);
+
+        $returnValue = $this->model->execute($productMock, []);
+
+        $this->assertSame($returnValue, $productMock);
     }
 }
