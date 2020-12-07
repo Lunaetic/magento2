@@ -11,7 +11,6 @@ use Magento\Catalog\Api\Data\ProductInterface;
 use Magento\Catalog\Model\Product;
 use Magento\Catalog\Model\Product\Attribute\Repository;
 use Magento\Catalog\Model\Product\Gallery\CreateHandler;
-use Magento\Catalog\Model\Product\Gallery\Handler;
 use Magento\Catalog\Model\Product\Media\Config;
 use Magento\Catalog\Model\ResourceModel\Product\Gallery;
 use Magento\Eav\Model\Entity\Attribute;
@@ -21,6 +20,7 @@ use Magento\Framework\EntityManager\MetadataPool;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Filesystem\Directory\Write;
+use Magento\Framework\Filesystem\Driver\File;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\MediaStorage\Helper\File\Storage\Database;
 use Magento\Store\Model\StoreManager;
@@ -155,6 +155,12 @@ class CreateHandlerTest extends TestCase
             $this->filestorageDb,
             $this->storeManager
         );
+
+        // 'mediaDirectory' is `protected` and set in the constructor via expression; set it with reflection here
+        $reflection = new \ReflectionClass(CreateHandler::class);
+        $reflectionProperty = $reflection->getProperty('mediaDirectory');
+        $reflectionProperty->setAccessible(true);
+        $reflectionProperty->setValue($this->model, $this->mediaDirectory);
     }
 
     /**
@@ -258,9 +264,10 @@ class CreateHandlerTest extends TestCase
             ->with($attributeCode)
             ->willReturn($attribute);
 
-        $productMock = $this->getMockBuilder(Product::class)
-            ->disableOriginalConstructor()
-            ->getMock();
+        $productMock = $this->createPartialMock(
+            Product::class,
+            ['getData', 'getIsDuplicate']
+        );
 
         $productMock->expects($this->once())
             ->method('getData')
@@ -275,7 +282,7 @@ class CreateHandlerTest extends TestCase
                     "position" => "1",
                     "media_type" => "image",
                     "video_provider" => "",
-                    "file" => "\/k\/i\/kitteh_1.jpeg.tmp",
+                    "file" => "/k/i/kitteh_1.jpeg.tmp",
                     "value_id" => "",
                     "label" => "",
                     "disabled" => "0",
@@ -287,6 +294,49 @@ class CreateHandlerTest extends TestCase
                     "role" => ""
                 ]
             ]);
+
+        $productMock->expects($this->once())
+            ->method('getIsDuplicate')
+            ->willReturn(false);
+
+        $driver = $this->createPartialMock(
+            File::class,
+            ['getRealPathSafety']
+        );
+
+        $this->mediaDirectory->expects($this->once())
+            ->method('getDriver')
+            ->willReturn($driver);
+
+        $driver->expects($this->once())
+            ->method('getRealPathSafety')
+            ->with("/k/i/kitteh_1.jpeg.tmp")
+            ->willReturn('/k/i/kitteh_1.jpeg.tmp');
+
+        $this->filestorageDb->expects($this->exactly(2))
+            ->method('checkDbUsage')
+            ->willReturn(true);
+
+        $this->mediaConfig->expects($this->once())
+            ->method('getBaseMediaUrlAddition')
+            ->willReturn('catalog/product');
+
+        $this->filestorageDb->expects($this->once())
+            ->method('getUniqueFilename')
+            ->with('catalog/product', '/k/i/kitteh_1.jpeg')
+            ->willReturn('catalog/product/k/i/kitteh_1.jpeg');
+
+        $this->filestorageDb->expects($this->once())
+            ->method('renameFile')
+            ->with('', '');
+
+        $this->mediaConfig->expects($this->once())
+            ->method('getTmpMediaShortUrl')
+            ->with('/k/i/kitteh_1.jpeg');
+
+        $this->mediaConfig->expects($this->once())
+            ->method('getMediaShortUrl')
+            ->with('catalog/product/k/i/kitteh_1.jpeg');
 
         $returnValue = $this->model->execute($productMock, []);
 
