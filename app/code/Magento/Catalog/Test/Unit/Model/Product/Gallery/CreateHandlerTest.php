@@ -8,14 +8,17 @@ declare(strict_types=1);
 namespace Magento\Catalog\Test\Unit\Model\Product\Gallery;
 
 use Magento\Catalog\Api\Data\ProductInterface;
+use Magento\Catalog\Model\Product;
 use Magento\Catalog\Model\Product\Attribute\Repository;
 use Magento\Catalog\Model\Product\Gallery\CreateHandler;
 use Magento\Catalog\Model\Product\Gallery\Handler;
 use Magento\Catalog\Model\Product\Media\Config;
 use Magento\Catalog\Model\ResourceModel\Product\Gallery;
+use Magento\Eav\Model\Entity\Attribute;
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\EntityManager\EntityMetadata;
 use Magento\Framework\EntityManager\MetadataPool;
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Filesystem\Directory\Write;
 use Magento\Framework\Serialize\Serializer\Json;
@@ -160,16 +163,40 @@ class CreateHandlerTest extends TestCase
     public function executeDataProvider()
     {
         return [
-            [1]
+            ['yolo' => 'yolo']
         ];
     }
 
     /**
-     * @param $value
+     * @param $data
+     * @throws LocalizedException
      * @dataProvider executeDataProvider
      */
-    public function testExecute($value)
+    public function testExecute($data) // 31121 Mocks in dataproviders?
     {
-        $this->assertEquals(1, $value);
+        $attributeCode = 'media_gallery';
+        $attribute = $this->createPartialMock(
+            Attribute::class,
+            ['getAttributeCode']
+        );
+
+        $attribute->expects($this->once())
+            ->method('getAttributeCode')
+            ->willReturn($attributeCode);
+
+        $this->attributeRepository->expects($this->once())
+            ->method('get')
+            ->with($attributeCode)
+            ->willReturn($attribute);
+
+        $productMock = $this->getMockBuilder(Product::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $productMock->expects($this->once())
+            ->method('getData')
+            ->with($attributeCode);
+
+        $this->model->execute($productMock, []);
     }
 }
