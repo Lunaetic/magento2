@@ -247,7 +247,7 @@ class CreateHandlerTest extends TestCase
     /**
      * @throws LocalizedException
      */
-    public function testExecuteValueContainsJson()
+    public function testExecuteValueContainsJsonDbStorage()
     {
         $attributeCode = 'media_gallery';
         $attribute = $this->createPartialMock(
@@ -337,6 +337,10 @@ class CreateHandlerTest extends TestCase
         $this->mediaConfig->expects($this->once())
             ->method('getMediaShortUrl')
             ->with('catalog/product/k/i/kitteh_1.jpeg');
+
+        $this->mediaConfig->expects($this->once())
+            ->method('getMediaAttributeCodes')
+            ->willReturn(["image", "small_image", "thumbnail", "swatch_image"]);
 
         $returnValue = $this->model->execute($productMock, []);
 
