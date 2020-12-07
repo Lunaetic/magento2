@@ -138,7 +138,7 @@ class CreateHandlerTest extends TestCase
 
         $this->storeManager = $this->createPartialMock(
             StoreManager::class,
-            ['getStores']
+            ['getStores', 'hasSingleStore']
         );
 
         $this->resourceModel = $this->createMock(
@@ -247,29 +247,29 @@ class CreateHandlerTest extends TestCase
     /**
      * @throws LocalizedException
      */
-    public function testExecuteValueContainsJsonDbStorage()
+    public function testExecuteValueContainsJsonDbStorageSingleStore()
     {
         $attributeCode = 'media_gallery';
-        $attribute = $this->createPartialMock(
+        $attributeMock = $this->createPartialMock(
             Attribute::class,
             ['getAttributeCode']
         );
 
-        $attribute->expects($this->once())
+        $attributeMock->expects($this->once())
             ->method('getAttributeCode')
             ->willReturn($attributeCode);
 
         $this->attributeRepository->expects($this->once())
             ->method('get')
             ->with($attributeCode)
-            ->willReturn($attribute);
+            ->willReturn($attributeMock);
 
         $productMock = $this->createPartialMock(
             Product::class,
-            ['getData', 'getIsDuplicate']
+            ['getData', 'getIsDuplicate', 'isObjectNew']
         );
 
-        $productMock->expects($this->once())
+        $productMock->expects($this->at(0))
             ->method('getData')
             ->with($attributeCode)
             ->willReturn(['images' => '{"9rm40a2fvqd":{"position":"1","media_type":"image","video_provider":"","file":"\/k\/i\/kitteh_1.jpeg.tmp","value_id":"","label":"","disabled":"0","removed":"","video_url":"","video_title":"","video_description":"","video_metadata":"","role":""}}']);
@@ -299,16 +299,16 @@ class CreateHandlerTest extends TestCase
             ->method('getIsDuplicate')
             ->willReturn(false);
 
-        $driver = $this->createPartialMock(
+        $driverMock = $this->createPartialMock(
             File::class,
             ['getRealPathSafety']
         );
 
         $this->mediaDirectory->expects($this->once())
             ->method('getDriver')
-            ->willReturn($driver);
+            ->willReturn($driverMock);
 
-        $driver->expects($this->once())
+        $driverMock->expects($this->once())
             ->method('getRealPathSafety')
             ->with("/k/i/kitteh_1.jpeg.tmp")
             ->willReturn('/k/i/kitteh_1.jpeg.tmp');
@@ -328,19 +328,37 @@ class CreateHandlerTest extends TestCase
 
         $this->filestorageDb->expects($this->once())
             ->method('renameFile')
-            ->with('', '');
+            ->with('tmpMediaShortUrl', 'mediaShortUrl');
 
         $this->mediaConfig->expects($this->once())
             ->method('getTmpMediaShortUrl')
-            ->with('/k/i/kitteh_1.jpeg');
+            ->with('/k/i/kitteh_1.jpeg')
+            ->willReturn('tmpMediaShortUrl');
 
         $this->mediaConfig->expects($this->once())
             ->method('getMediaShortUrl')
-            ->with('catalog/product/k/i/kitteh_1.jpeg');
+            ->with('catalog/product/k/i/kitteh_1.jpeg')
+            ->willReturn('mediaShortUrl');
 
         $this->mediaConfig->expects($this->once())
             ->method('getMediaAttributeCodes')
             ->willReturn(["image", "small_image", "thumbnail", "swatch_image"]);
+
+        $productMock->expects($this->once())
+            ->method("isObjectNew")
+            ->willReturn(true);
+
+        $productMock->expects($this->at(1))
+            ->method('getData')
+            ->with('image');
+
+        $this->storeManager->expects($this->once())
+            ->method('hasSingleStore')
+            ->willReturn(true);
+
+        $this->storeManager->expects($this->once())
+            ->method('getStores')
+            ->willReturn([0]);
 
         $returnValue = $this->model->execute($productMock, []);
 

@@ -406,7 +406,7 @@ class Handler
          * @see \Magento\Catalog\Model\ResourceModel\AbstractResource::_saveAttributeValue
          */
         if ($storeId === Store::DEFAULT_STORE_ID
-            || $this->storeManager->hasSingleStore()
+            || $this->storeManager->hasSingleStore() // HERE
             || $this->getMediaAttributeStoreValue($product, $mediaAttrCode, $storeId) !== null
         ) {
             $value = $product->getData($mediaAttrCode);
