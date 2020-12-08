@@ -6,6 +6,7 @@
 namespace Magento\Framework\View\Design\Theme;
 
 use Magento\Framework\App\Filesystem\DirectoryList;
+use Magento\Framework\File\Uploader;
 use Magento\Framework\Filesystem\Directory\WriteInterface;
 use Magento\Framework\View\Design\ThemeInterface;
 
@@ -83,6 +84,11 @@ class Image
     protected $imageParams;
 
     /**
+     * @var Uploader
+     */
+    protected $fileUploader;
+
+    /**
      * Initialize dependencies
      *
      * @param \Magento\Framework\Filesystem $filesystem
@@ -92,6 +98,8 @@ class Image
      * @param \Psr\Log\LoggerInterface $logger
      * @param array $imageParams
      * @param ThemeInterface $theme
+     * @param Uploader|null $fileUploader
+     * @throws \Magento\Framework\Exception\FileSystemException
      * @codingStandardsIgnoreStart
      */
     public function __construct(
@@ -101,7 +109,8 @@ class Image
         Image\PathInterface $themeImagePath,
         \Psr\Log\LoggerInterface $logger,
         array $imageParams = [self::PREVIEW_IMAGE_WIDTH, self::PREVIEW_IMAGE_HEIGHT],
-        ThemeInterface $theme = null
+        ThemeInterface $theme = null,
+        Uploader $fileUploader = null
     ) {
         $this->mediaDirectory = $filesystem->getDirectoryWrite(DirectoryList::MEDIA);
         $this->rootDirectory = $filesystem->getDirectoryWrite(DirectoryList::ROOT);
@@ -111,6 +120,8 @@ class Image
         $this->logger = $logger;
         $this->imageParams = $imageParams;
         $this->theme = $theme;
+        $this->fileUploader = $fileUploader ?: \Magento\Framework\App\ObjectManager::getInstance()
+            ->get(Uploader::class);
     }
 
     // @codingStandardsIgnoreEnd
@@ -154,7 +165,7 @@ class Image
         }
         $isCopied = false;
         try {
-            $destinationFileName = \Magento\Framework\File\Uploader::getNewFileName($sourcePath);
+            $destinationFileName = $this->fileUploader->getNewFileName($sourcePath);
             $targetRelativePath =  $this->mediaDirectory->getRelativePath($previewDir . '/' . $destinationFileName);
             $isCopied = $this->rootDirectory->copyFile($sourceRelativePath, $targetRelativePath, $this->mediaDirectory);
             $this->theme->setPreviewImage($destinationFileName);
