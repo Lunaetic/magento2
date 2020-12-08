@@ -7,6 +7,9 @@ declare(strict_types=1);
 
 namespace Magento\Customer\Model;
 
+use Magento\Framework\App\ObjectManager;
+use Magento\Framework\File\Uploader;
+
 /**
  * Processor class for work with uploaded files
  */
@@ -53,6 +56,11 @@ class FileProcessor
     private $mime;
 
     /**
+     * @var Uploader
+     */
+    private $uploader;
+
+    /**
      * @param \Magento\Framework\Filesystem $filesystem
      * @param \Magento\MediaStorage\Model\File\UploaderFactory $uploaderFactory
      * @param \Magento\Framework\UrlInterface $urlBuilder
@@ -60,6 +68,8 @@ class FileProcessor
      * @param string $entityTypeCode
      * @param \Magento\Framework\File\Mime $mime
      * @param array $allowedExtensions
+     * @param Uploader|null $uploader
+     * @throws \Magento\Framework\Exception\FileSystemException
      */
     public function __construct(
         \Magento\Framework\Filesystem $filesystem,
@@ -68,7 +78,8 @@ class FileProcessor
         \Magento\Framework\Url\EncoderInterface $urlEncoder,
         $entityTypeCode,
         \Magento\Framework\File\Mime $mime,
-        array $allowedExtensions = []
+        array $allowedExtensions = [],
+        Uploader $uploader = null
     ) {
         $this->mediaDirectory = $filesystem->getDirectoryWrite(\Magento\Framework\App\Filesystem\DirectoryList::MEDIA);
         $this->uploaderFactory = $uploaderFactory;
@@ -77,6 +88,7 @@ class FileProcessor
         $this->entityTypeCode = $entityTypeCode;
         $this->mime = $mime;
         $this->allowedExtensions = $allowedExtensions;
+        $this->uploader = $uploader ?: ObjectManager::getInstance()->get(Uploader::class);
     }
 
     /**
@@ -222,7 +234,7 @@ class FileProcessor
             );
         }
 
-        $destinationFileName = \Magento\MediaStorage\Model\File\Uploader::getNewFileName(
+        $destinationFileName = $this->uploader->getNewFileName(
             $this->mediaDirectory->getAbsolutePath($destinationPath) . '/' . $fileName
         );
 
