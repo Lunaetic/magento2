@@ -9,6 +9,7 @@ use Magento\Catalog\Helper\Image;
 use Magento\Catalog\Model\Config\CatalogMediaConfig;
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\App\ObjectManager;
+use Magento\Framework\File\Uploader;
 
 /**
  * Helper to move images from tmp to catalog directory
@@ -79,6 +80,11 @@ class Media extends \Magento\Framework\App\Helper\AbstractHelper
     private $mediaUrlFormat;
 
     /**
+     * @var Uploader
+     */
+    private $uploader;
+
+    /**
      * @param \Magento\Catalog\Model\Product\Media\Config $mediaConfig
      * @param \Magento\Framework\Filesystem $filesystem
      * @param \Magento\MediaStorage\Helper\File\Storage\Database $fileStorageDb
@@ -87,6 +93,7 @@ class Media extends \Magento\Framework\App\Helper\AbstractHelper
      * @param \Magento\Theme\Model\ResourceModel\Theme\Collection $themeCollection
      * @param \Magento\Framework\View\ConfigInterface $configInterface
      * @param CatalogMediaConfig $catalogMediaConfig
+     * @param Uploader|null $uploader
      * @throws \Magento\Framework\Exception\FileSystemException
      */
     public function __construct(
@@ -97,7 +104,8 @@ class Media extends \Magento\Framework\App\Helper\AbstractHelper
         \Magento\Framework\Image\Factory $imageFactory,
         \Magento\Theme\Model\ResourceModel\Theme\Collection $themeCollection,
         \Magento\Framework\View\ConfigInterface $configInterface,
-        CatalogMediaConfig $catalogMediaConfig = null
+        CatalogMediaConfig $catalogMediaConfig = null,
+        Uploader $uploader = null
     ) {
         $this->mediaConfig = $mediaConfig;
         $this->fileStorageDb = $fileStorageDb;
@@ -109,6 +117,8 @@ class Media extends \Magento\Framework\App\Helper\AbstractHelper
 
         $catalogMediaConfig = $catalogMediaConfig ?: ObjectManager::getInstance()->get(CatalogMediaConfig::class);
         $this->mediaUrlFormat = $catalogMediaConfig->getMediaUrlFormat();
+
+        $this->uploader = $uploader ?: ObjectManager::getInstance()->get(Uploader::class);
     }
 
     /**
@@ -197,7 +207,7 @@ class Media extends \Magento\Framework\App\Helper\AbstractHelper
                 $file
             );
         } else {
-            $destFile = rtrim(dirname($file), '/.') . '/' . \Magento\MediaStorage\Model\File\Uploader::getNewFileName(
+            $destFile = rtrim(dirname($file), '/.') . '/' . $this->uploader->getNewFileName(
                 $this->getOriginalFilePath($file)
             );
         }
