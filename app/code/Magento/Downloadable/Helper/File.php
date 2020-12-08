@@ -6,6 +6,8 @@
 namespace Magento\Downloadable\Helper;
 
 use Magento\Framework\App\Filesystem\DirectoryList;
+use Magento\Framework\App\ObjectManager;
+use Magento\Framework\File\Uploader;
 
 /**
  * Downloadable Products File Helper
@@ -37,16 +39,24 @@ class File extends \Magento\Framework\App\Helper\AbstractHelper
     protected $_mediaDirectory;
 
     /**
+     * @var Uploader
+     */
+    protected $uploader;
+
+    /**
      * @param \Magento\Framework\App\Helper\Context $context
      * @param \Magento\MediaStorage\Helper\File\Storage\Database $coreFileStorageDatabase
      * @param \Magento\Framework\Filesystem $filesystem
      * @param array $mimeTypes
+     * @param Uploader|null $uploader
+     * @throws \Magento\Framework\Exception\FileSystemException
      */
     public function __construct(
         \Magento\Framework\App\Helper\Context $context,
         \Magento\MediaStorage\Helper\File\Storage\Database $coreFileStorageDatabase,
         \Magento\Framework\Filesystem $filesystem,
-        array $mimeTypes = []
+        array $mimeTypes = [],
+        Uploader $uploader = null
     ) {
         $this->_coreFileStorageDatabase = $coreFileStorageDatabase;
         $this->_filesystem = $filesystem;
@@ -57,6 +67,7 @@ class File extends \Magento\Framework\App\Helper\AbstractHelper
                 self::$_mimeTypes[$key] = $value;
             }
         }
+        $this->uploader = $uploader ?: ObjectManager::getInstance()->get(Uploader::class);
     }
 
     /**
@@ -133,7 +144,7 @@ class File extends \Magento\Framework\App\Helper\AbstractHelper
 
         $destFile = dirname(
             $file
-        ) . '/' . \Magento\MediaStorage\Model\File\Uploader::getNewFileName(
+        ) . '/' . $this->uploader->getNewFileName(
             $this->getFilePath($basePath, $file)
         );
 
