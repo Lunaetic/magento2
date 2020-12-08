@@ -66,6 +66,11 @@ class RetrieveImage extends \Magento\Backend\App\Action implements HttpPostActio
     private $extensionValidator;
 
     /**
+     * @var Uploader
+     */
+    private $uploader;
+
+    /**
      * @param \Magento\Backend\App\Action\Context $context
      * @param \Magento\Framework\Controller\Result\RawFactory $resultRawFactory
      * @param \Magento\Catalog\Model\Product\Media\Config $mediaConfig
@@ -75,6 +80,7 @@ class RetrieveImage extends \Magento\Backend\App\Action implements HttpPostActio
      * @param \Magento\MediaStorage\Model\ResourceModel\File\Storage\File $fileUtility
      * @param \Magento\Framework\Validator\ValidatorInterface $protocolValidator
      * @param \Magento\MediaStorage\Model\File\Validator\NotProtectedExtension $extensionValidator
+     * @param Uploader|null $uploader
      */
     public function __construct(
         \Magento\Backend\App\Action\Context $context,
@@ -85,7 +91,8 @@ class RetrieveImage extends \Magento\Backend\App\Action implements HttpPostActio
         \Magento\Framework\HTTP\Adapter\Curl $curl,
         \Magento\MediaStorage\Model\ResourceModel\File\Storage\File $fileUtility,
         \Magento\Framework\Validator\ValidatorInterface $protocolValidator = null,
-        \Magento\MediaStorage\Model\File\Validator\NotProtectedExtension $extensionValidator = null
+        \Magento\MediaStorage\Model\File\Validator\NotProtectedExtension $extensionValidator = null,
+        Uploader $uploader = null
     ) {
         parent::__construct($context);
         $this->resultRawFactory = $resultRawFactory;
@@ -100,6 +107,9 @@ class RetrieveImage extends \Magento\Backend\App\Action implements HttpPostActio
         $this->protocolValidator = $protocolValidator ?:
             \Magento\Framework\App\ObjectManager::getInstance()
                 ->get(\Magento\Framework\Validator\ValidatorInterface::class);
+        $this->uploader = $uploader ?:
+            \Magento\Framework\App\ObjectManager::getInstance()
+                ->get(Uploader::class);
     }
 
     /**
@@ -214,7 +224,7 @@ class RetrieveImage extends \Magento\Backend\App\Action implements HttpPostActio
     protected function appendNewFileName($localFilePath)
     {
         $destinationFile = $this->appendAbsoluteFileSystemPath($localFilePath);
-        $fileName = Uploader::getNewFileName($destinationFile);
+        $fileName = $this->uploader->getNewFileName($destinationFile);
         $fileInfo = pathinfo($localFilePath);
         return $fileInfo['dirname'] . DIRECTORY_SEPARATOR . $fileName;
     }
