@@ -194,6 +194,11 @@ class Uploader
     private $targetDirectory;
 
     /**
+     * @var Filesystem|null
+     */
+    private $filesystem;
+
+    /**
      * Init upload
      *
      * @param string|array $fileId
@@ -201,6 +206,7 @@ class Uploader
      * @param DirectoryList|null $directoryList
      * @param DriverPool|null $driverPool
      * @param TargetDirectory|null $targetDirectory
+     * @param Filesystem|null $filesystem
      * @throws \DomainException
      */
     public function __construct(
@@ -208,7 +214,8 @@ class Uploader
         Mime $fileMime = null,
         DirectoryList $directoryList = null,
         DriverPool $driverPool = null,
-        TargetDirectory $targetDirectory = null
+        TargetDirectory $targetDirectory = null,
+        Filesystem $filesystem = null
     ) {
         $this->directoryList = $directoryList ?: ObjectManager::getInstance()->get(DirectoryList::class);
 
@@ -222,6 +229,7 @@ class Uploader
         $this->fileMime = $fileMime ?: ObjectManager::getInstance()->get(Mime::class);
         $this->driverPool = $driverPool ?: ObjectManager::getInstance()->get(DriverPool::class);
         $this->targetDirectory = $targetDirectory ?: ObjectManager::getInstance()->get(TargetDirectory::class);
+        $this->filesystem = $filesystem ?: ObjectManager::getInstance()->get(Filesystem::class);
     }
 
     /**
@@ -263,7 +271,7 @@ class Uploader
         }
 
         if ($this->_allowRenameFiles) {
-            $fileName = static::getNewFileName(
+            $fileName = $this->getNewFileName(
                 static::_addDirSeparator($destinationFile) . $fileName
             );
         }
@@ -773,14 +781,10 @@ class Uploader
      * @param string $destinationFile
      * @return string
      */
-    public static function getNewFileName($destinationFile)
+    public function getNewFileName($destinationFile)
     {
-        /** @var Filesystem $fileSystem */
-        $fileSystem = ObjectManager::getInstance()->get(Filesystem::class);
-        $local = $fileSystem->getDirectoryRead(DirectoryList::ROOT);
-        /** @var TargetDirectory $targetDirectory */
-        $targetDirectory = ObjectManager::getInstance()->get(TargetDirectory::class);
-        $remote = $targetDirectory->getDirectoryRead(DirectoryList::ROOT);
+        $local = $this->filesystem->getDirectoryRead(DirectoryList::ROOT);
+        $remote = $this->targetDirectory->getDirectoryRead(DirectoryList::ROOT);
 
         $fileExists = function ($path) use ($local, $remote) {
             return $local->isExist($path) || $remote->isExist($path);
