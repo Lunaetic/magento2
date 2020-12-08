@@ -10,6 +10,7 @@ use Magento\Framework\Api\Data\ImageContentInterface;
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\App\ObjectManager;
+use Magento\Framework\File\Uploader;
 
 /**
  * Catalog product Media Gallery attribute processor.
@@ -63,12 +64,18 @@ class Processor
     private $mime;
 
     /**
+     * @var Uploader
+     */
+    protected $uploader;
+
+    /**
      * @param \Magento\Catalog\Api\ProductAttributeRepositoryInterface $attributeRepository
      * @param \Magento\MediaStorage\Helper\File\Storage\Database $fileStorageDb
      * @param \Magento\Catalog\Model\Product\Media\Config $mediaConfig
      * @param \Magento\Framework\Filesystem $filesystem
      * @param \Magento\Catalog\Model\ResourceModel\Product\Gallery $resourceModel
      * @param \Magento\Framework\File\Mime|null $mime
+     * @param Uploader|null $uploader
      * @throws \Magento\Framework\Exception\FileSystemException
      */
     public function __construct(
@@ -77,7 +84,8 @@ class Processor
         \Magento\Catalog\Model\Product\Media\Config $mediaConfig,
         \Magento\Framework\Filesystem $filesystem,
         \Magento\Catalog\Model\ResourceModel\Product\Gallery $resourceModel,
-        \Magento\Framework\File\Mime $mime = null
+        \Magento\Framework\File\Mime $mime = null,
+        Uploader $uploader = null
     ) {
         $this->attributeRepository = $attributeRepository;
         $this->fileStorageDb = $fileStorageDb;
@@ -85,6 +93,7 @@ class Processor
         $this->mediaDirectory = $filesystem->getDirectoryWrite(DirectoryList::MEDIA);
         $this->resourceModel = $resourceModel;
         $this->mime = $mime ?: ObjectManager::getInstance()->get(\Magento\Framework\File\Mime::class);
+        $this->uploader = $uploader ?: ObjectManager::getInstance()->get(Uploader::class);
     }
 
     /**
@@ -454,8 +463,7 @@ class Processor
                 ? $this->mediaDirectory->getAbsolutePath($this->mediaConfig->getTmpMediaPath($file))
                 : $this->mediaDirectory->getAbsolutePath($this->mediaConfig->getMediaPath($file));
             // phpcs:ignore Magento2.Functions.DiscouragedFunction
-            $destFile = dirname($file) . '/'
-                . \Magento\MediaStorage\Model\File\Uploader::getNewFileName($destinationFile);
+            $destFile = dirname($file) . '/' . $this->uploader->getNewFileName($destinationFile);
         }
 
         return $destFile;
@@ -472,9 +480,9 @@ class Processor
     protected function getNotDuplicatedFilename($fileName, $dispersionPath)
     {
         $fileMediaName = $dispersionPath . '/'
-            . \Magento\MediaStorage\Model\File\Uploader::getNewFileName($this->mediaConfig->getMediaPath($fileName));
+            . $this->uploader->getNewFileName($this->mediaConfig->getMediaPath($fileName));
         $fileTmpMediaName = $dispersionPath . '/'
-            . \Magento\MediaStorage\Model\File\Uploader::getNewFileName($this->mediaConfig->getTmpMediaPath($fileName));
+            . $this->uploader->getNewFileName($this->mediaConfig->getTmpMediaPath($fileName));
 
         if ($fileMediaName != $fileTmpMediaName) {
             if ($fileMediaName != $fileName) {
