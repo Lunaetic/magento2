@@ -194,7 +194,7 @@ class Uploader
     private $targetDirectory;
 
     /**
-     * @var Filesystem|null
+     * @var Filesystem
      */
     private $filesystem;
 

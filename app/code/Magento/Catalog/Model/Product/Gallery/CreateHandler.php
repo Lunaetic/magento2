@@ -12,6 +12,7 @@ use Magento\Catalog\Model\Product;
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\App\ObjectManager;
 use Magento\Framework\EntityManager\Operation\ExtensionInterface;
+use Magento\Framework\File\Uploader;
 use Magento\MediaStorage\Model\File\Uploader as FileUploader;
 use Magento\Store\Model\Store;
 use Magento\Store\Model\StoreManagerInterface;
@@ -101,6 +102,11 @@ class CreateHandler implements ExtensionInterface
     ];
 
     /**
+     * @var Uploader
+     */
+    private $uploader;
+
+    /**
      * @param \Magento\Framework\EntityManager\MetadataPool $metadataPool
      * @param \Magento\Catalog\Api\ProductAttributeRepositoryInterface $attributeRepository
      * @param \Magento\Catalog\Model\ResourceModel\Product\Gallery $resourceModel
@@ -109,6 +115,7 @@ class CreateHandler implements ExtensionInterface
      * @param \Magento\Framework\Filesystem $filesystem
      * @param \Magento\MediaStorage\Helper\File\Storage\Database $fileStorageDb
      * @param \Magento\Store\Model\StoreManagerInterface|null $storeManager
+     * @param Uploader|null $uploader
      * @throws \Magento\Framework\Exception\FileSystemException
      */
     public function __construct(
@@ -119,7 +126,8 @@ class CreateHandler implements ExtensionInterface
         \Magento\Catalog\Model\Product\Media\Config $mediaConfig,
         \Magento\Framework\Filesystem $filesystem,
         \Magento\MediaStorage\Helper\File\Storage\Database $fileStorageDb,
-        \Magento\Store\Model\StoreManagerInterface $storeManager = null
+        \Magento\Store\Model\StoreManagerInterface $storeManager = null,
+        Uploader $uploader = null
     ) {
         $this->metadata = $metadataPool->getMetadata(\Magento\Catalog\Api\Data\ProductInterface::class);
         $this->attributeRepository = $attributeRepository;
@@ -129,6 +137,7 @@ class CreateHandler implements ExtensionInterface
         $this->mediaDirectory = $filesystem->getDirectoryWrite(DirectoryList::MEDIA);
         $this->fileStorageDb = $fileStorageDb;
         $this->storeManager = $storeManager ?: ObjectManager::getInstance()->get(StoreManagerInterface::class);
+        $this->uploader = $uploader ?: ObjectManager::getInstance()->get(Uploader::class);
     }
 
     /**
@@ -421,7 +430,7 @@ class CreateHandler implements ExtensionInterface
                 ? $this->mediaDirectory->getAbsolutePath($this->mediaConfig->getTmpMediaPath($file))
                 : $this->mediaDirectory->getAbsolutePath($this->mediaConfig->getMediaPath($file));
             // phpcs:disable Magento2.Functions.DiscouragedFunction
-            $destFile = dirname($file) . '/' . FileUploader::getNewFileName($destinationFile);
+            $destFile = dirname($file) . '/' . $this->uploader->getNewFileName($destinationFile);
         }
 
         return $destFile;

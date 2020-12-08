@@ -63,6 +63,9 @@ class Image extends \Magento\Eav\Model\Entity\Attribute\Backend\AbstractBackend
      */
     private $storeManager;
 
+    /**
+     * @var Uploader
+     */
     private $uploader;
 
     /**
