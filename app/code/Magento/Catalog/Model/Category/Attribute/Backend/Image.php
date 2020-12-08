@@ -63,19 +63,23 @@ class Image extends \Magento\Eav\Model\Entity\Attribute\Backend\AbstractBackend
      */
     private $storeManager;
 
+    private $uploader;
+
     /**
      * @param \Psr\Log\LoggerInterface $logger
      * @param \Magento\Framework\Filesystem $filesystem
      * @param \Magento\MediaStorage\Model\File\UploaderFactory $fileUploaderFactory
      * @param StoreManagerInterface $storeManager
      * @param ImageUploader $imageUploader
+     * @param Uploader|null $uploader
      */
     public function __construct(
         \Psr\Log\LoggerInterface $logger,
         \Magento\Framework\Filesystem $filesystem,
         \Magento\MediaStorage\Model\File\UploaderFactory $fileUploaderFactory,
         StoreManagerInterface $storeManager = null,
-        ImageUploader $imageUploader = null
+        ImageUploader $imageUploader = null,
+        Uploader $uploader = null
     ) {
         $this->_filesystem = $filesystem;
         $this->_fileUploaderFactory = $fileUploaderFactory;
@@ -84,6 +88,8 @@ class Image extends \Magento\Eav\Model\Entity\Attribute\Backend\AbstractBackend
             ObjectManager::getInstance()->get(StoreManagerInterface::class);
         $this->imageUploader = $imageUploader ??
             ObjectManager::getInstance()->get(ImageUploader::class);
+        $this->uploader = $uploader ??
+            ObjectManager::getInstance()->get(Uploader::class);
     }
 
     /**
@@ -116,10 +122,7 @@ class Image extends \Magento\Eav\Model\Entity\Attribute\Backend\AbstractBackend
             $this->imageUploader->getBasePath() . DIRECTORY_SEPARATOR . $imageName
         );
 
-        // phpcs:ignore Magento2.Functions.DiscouragedFunction
-        $imageName = call_user_func([Uploader::class, 'getNewFilename'], $imageAbsolutePath);
-
-        return $imageName;
+        return $this->uploader->getNewFileName($imageAbsolutePath);
     }
 
     /**
