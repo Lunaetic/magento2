@@ -210,14 +210,14 @@ class ImageTest extends TestCase
             ->with(DirectoryList::MEDIA)
             ->willReturn($mediaDirectoryMock);
         $this->imageUploader->expects($this->once())->method('getBasePath')->willReturn('base/path');
-        $this->uploaderMock->expects($this->once())
-            ->method('getNewFileName')
-            ->with('absolute/path/base/path/test123.jpg')
-            ->willReturn('test123.jpg');
         $mediaDirectoryMock->expects($this->once())
             ->method('getAbsolutePath')
             ->with('base/path/test123.jpg')
             ->willReturn('absolute/path/base/path/test123.jpg');
+        $this->uploaderMock->expects($this->once())
+            ->method('getNewFileName')
+            ->with('absolute/path/base/path/test123.jpg')
+            ->willReturn('test123.jpg');
 
         $object = new DataObject(
             [
@@ -309,6 +309,11 @@ class ImageTest extends TestCase
             ->willReturn($mediaDirectoryMock);
 
         $mediaDirectoryMock->method('getAbsolutePath')->willReturn('/media/test123.jpg');
+
+        $this->uploaderMock->expects($this->once())
+            ->method('getNewFileName')
+            ->with('/media/test123.jpg')
+            ->willReturn('test123.jpg');
 
         $this->imageUploader->method('moveFileFromTmp')->willReturn('test123.jpg');
 
@@ -480,6 +485,11 @@ class ImageTest extends TestCase
             ->method('getAbsolutePath')
             ->with('base/path/test1234.jpg')
             ->willReturn('absolute/path/base/path/test1234.jpg');
+
+        $this->uploaderMock->expects($this->once())
+            ->method('getNewFileName')
+            ->with('absolute/path/base/path/test1234.jpg')
+            ->willReturn('test1234.jpg');
 
         $exception = new \Exception();
 
