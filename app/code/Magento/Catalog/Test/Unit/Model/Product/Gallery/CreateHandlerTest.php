@@ -7,14 +7,12 @@ declare(strict_types=1);
 
 namespace Magento\Catalog\Test\Unit\Model\Product\Gallery;
 
-use Magento\Catalog\Api\Data\ProductInterface;
 use Magento\Catalog\Model\Product;
 use Magento\Catalog\Model\Product\Attribute\Repository;
 use Magento\Catalog\Model\Product\Gallery\CreateHandler;
 use Magento\Catalog\Model\Product\Media\Config;
 use Magento\Catalog\Model\ResourceModel\Product\Gallery;
 use Magento\Eav\Model\Entity\Attribute;
-use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\EntityManager\EntityMetadata;
 use Magento\Framework\EntityManager\MetadataPool;
 use Magento\Framework\Exception\LocalizedException;
@@ -35,42 +33,42 @@ class CreateHandlerTest extends TestCase
     /**
     * @var Repository|MockObject
     */
-    protected $attributeRepository;
+    protected $attributeRepositoryMock;
 
     /**
      * @var Database|MockObject
      */
-    protected $filestorageDb;
+    protected $filestorageDbMock;
 
     /**
      * @var Filesystem|MockObject
      */
-    protected $filesystem;
+    protected $filesystemMock;
 
     /**
      * @var Json|MockObject
      */
-    protected $json;
+    protected $jsonMock;
 
     /**
      * @var Config|MockObject
      */
-    protected $mediaConfig;
+    protected $mediaConfigMock;
 
     /**
      * @var Write|MockObject
      */
-    protected $mediaDirectory;
+    protected $mediaDirectoryMock;
 
     /**
      * @var EntityMetadata|MockObject
      */
-    protected $metadata;
+    protected $metadataMock;
 
     /**
      * @var MetadataPool|MockObject
      */
-    protected $metadataPool;
+    protected $metadataPoolMock;
 
     /**
      * @var CreateHandler
@@ -80,100 +78,92 @@ class CreateHandlerTest extends TestCase
     /**
      * @var Gallery|MockObject
      */
-    protected $resourceModel;
+    protected $resourceModelMock;
 
     /**
      * @var StoreManager|MockObject
      */
-    protected $storeManager;
+    protected $storeManagerMock;
 
     /**
      * @inheritdoc
      */
     protected function setUp(): void
     {
-        $this->attributeRepository = $this->createPartialMock(
+        $this->attributeRepositoryMock = $this->createPartialMock(
             Repository::class,
             ['get']
         );
 
-        $this->filestorageDb = $this->createMock(
-            Database::class
+        $this->filestorageDbMock = $this->createPartialMock(
+            Database::class,
+            ['checkDbUsage', 'getUniqueFilename', 'renameFile']
         );
 
-        $this->filesystem = $this->createMock(
-            Filesystem::class
+        $this->filesystemMock = $this->createPartialMock(
+            Filesystem::class,
+            ['getDirectoryWrite']
         );
 
-        $this->filesystem->expects($this->once())
-            ->method('getDirectoryWrite')
-            ->with(DirectoryList::MEDIA)
-            ->willReturn($this->mediaDirectory);
-
-        $this->json = $this->createMock(
-            Json::class
+        $this->jsonMock = $this->createPartialMock(
+            Json::class,
+            ['unserialize']
         );
 
-        $this->metadata = $this->createMock(
-            EntityMetadata::class
+        $this->metadataMock = $this->createPartialMock(
+            EntityMetadata::class,
+            []
         );
 
-        $this->mediaConfig = $this->createMock(
-            Config::class
+        $this->mediaConfigMock = $this->createPartialMock(
+            Config::class,
+            [
+                'getBaseMediaUrlAddition',
+                'getMediaAttributeCodes',
+                'getMediaPath',
+                'getMediaShortUrl',
+                'getTmpMediaPath',
+                'getTmpMediaShortUrl']
         );
 
-        $this->mediaDirectory = $this->createMock(
-            Write::class
+        $this->mediaDirectoryMock = $this->createPartialMock(
+            Write::class,
+            ['getAbsolutePath', 'getDriver']
         );
 
-        $this->metadataPool = $this->createPartialMock(
+        $this->metadataPoolMock = $this->createPartialMock(
             MetadataPool::class,
             ['getMetadata']
         );
 
-        $this->metadataPool->expects($this->once())
-            ->method('getMetadata')
-            ->with(ProductInterface::class)
-            ->willReturn($this->metadata);
-
-        $this->storeManager = $this->createPartialMock(
+        $this->storeManagerMock = $this->createPartialMock(
             StoreManager::class,
             ['getStores', 'hasSingleStore']
         );
 
-        $this->resourceModel = $this->createMock(
-            Gallery::class
+        $this->resourceModelMock = $this->createPartialMock(
+            Gallery::class,
+            ['getProductImages']
         );
 
-        $this->model = new CreateHandler(
-            $this->metadataPool,
-            $this->attributeRepository,
-            $this->resourceModel,
-            $this->json,
-            $this->mediaConfig,
-            $this->filesystem,
-            $this->filestorageDb,
-            $this->storeManager
+        $this->model = $this->createPartialMock(
+            CreateHandler::class,
+            ['getNewFileName']
         );
 
-        // 'mediaDirectory' is `protected` and set in the constructor via expression; set it with reflection here
-        $reflection = new \ReflectionClass(CreateHandler::class);
-        $reflectionProperty = $reflection->getProperty('mediaDirectory');
-        $reflectionProperty->setAccessible(true);
-        $reflectionProperty->setValue($this->model, $this->mediaDirectory);
-    }
-
-    /**
-     * @return array
-     */
-    public function executeDataProvider()
-    {
-        return [
+        $this->setPropertyValues(
+            $this->model,
             [
-                'imageData' => [
-                ]
+                'attributeRepository' => $this->attributeRepositoryMock,
+                'fileStorageDb' => $this->filestorageDbMock,
+                'json' => $this->jsonMock,
+                'mediaConfig' => $this->mediaConfigMock,
+                'mediaDirectory' => $this->mediaDirectoryMock,
+                'metadata' => $this->metadataMock,
+                'resourceModel' => $this->resourceModelMock,
+                'storeManager' => $this->storeManagerMock
             ]
-        ];
+        );
     }
 
     /**
@@ -181,7 +171,6 @@ class CreateHandlerTest extends TestCase
      */
     public function testExecuteValueNotArray()
     {
-        $attributeCode = 'media_gallery';
         $attribute = $this->createPartialMock(
             Attribute::class,
             ['getAttributeCode']
@@ -189,20 +178,21 @@ class CreateHandlerTest extends TestCase
 
         $attribute->expects($this->once())
             ->method('getAttributeCode')
-            ->willReturn($attributeCode);
+            ->willReturn('media_gallery');
 
-        $this->attributeRepository->expects($this->once())
+        $this->attributeRepositoryMock->expects($this->once())
             ->method('get')
-            ->with($attributeCode)
+            ->with('media_gallery')
             ->willReturn($attribute);
 
-        $productMock = $this->getMockBuilder(Product::class)
-            ->disableOriginalConstructor()
-            ->getMock();
+        $productMock = $this->createPartialMock(
+            Product::class,
+            ['getData']
+        );
 
         $productMock->expects($this->once())
             ->method('getData')
-            ->with($attributeCode)
+            ->with('media_gallery')
             ->willReturn(null);
 
         $returnValue = $this->model->execute($productMock, []);
@@ -215,7 +205,6 @@ class CreateHandlerTest extends TestCase
      */
     public function testExecuteValueNotContainImages()
     {
-        $attributeCode = 'media_gallery';
         $attribute = $this->createPartialMock(
             Attribute::class,
             ['getAttributeCode']
@@ -223,20 +212,21 @@ class CreateHandlerTest extends TestCase
 
         $attribute->expects($this->once())
             ->method('getAttributeCode')
-            ->willReturn($attributeCode);
+            ->willReturn('media_gallery');
 
-        $this->attributeRepository->expects($this->once())
+        $this->attributeRepositoryMock->expects($this->once())
             ->method('get')
-            ->with($attributeCode)
+            ->with('media_gallery')
             ->willReturn($attribute);
 
-        $productMock = $this->getMockBuilder(Product::class)
-            ->disableOriginalConstructor()
-            ->getMock();
+        $productMock = $this->createPartialMock(
+            Product::class,
+            ['getData']
+        );
 
         $productMock->expects($this->once())
             ->method('getData')
-            ->with($attributeCode)
+            ->with('media_gallery')
             ->willReturn(['testKey' => 'testValue']);
 
         $returnValue = $this->model->execute($productMock, []);
@@ -247,9 +237,13 @@ class CreateHandlerTest extends TestCase
     /**
      * @throws LocalizedException
      */
-    public function testExecuteValueContainsJsonDbStorageSingleStore()
+    public function testExecuteValueContainsJsonNotDuplicateNotDbStorageSingleStore()
     {
-        $attributeCode = 'media_gallery';
+        $productMock = $this->createPartialMock(
+            Product::class,
+            ['addAttributeUpdate', 'getData', 'getIsDuplicate', 'isObjectNew', 'setData']
+        );
+
         $attributeMock = $this->createPartialMock(
             Attribute::class,
             ['getAttributeCode']
@@ -257,32 +251,37 @@ class CreateHandlerTest extends TestCase
 
         $attributeMock->expects($this->once())
             ->method('getAttributeCode')
-            ->willReturn($attributeCode);
+            ->willReturn('media_gallery');
 
-        $this->attributeRepository->expects($this->once())
+        $this->attributeRepositoryMock->expects($this->once())
             ->method('get')
-            ->with($attributeCode)
+            ->with('media_gallery')
             ->willReturn($attributeMock);
 
-        $productMock = $this->createPartialMock(
-            Product::class,
-            ['getData', 'getIsDuplicate', 'isObjectNew']
-        );
-
-        $productMock->expects($this->at(0))
+        $productMock->expects($this->exactly(4))
             ->method('getData')
-            ->with($attributeCode)
-            ->willReturn(['images' => '{"9rm40a2fvqd":{"position":"1","media_type":"image","video_provider":"","file":"\/k\/i\/kitteh_1.jpeg.tmp","value_id":"","label":"","disabled":"0","removed":"","video_url":"","video_title":"","video_description":"","video_metadata":"","role":""}}']);
+            ->withConsecutive(
+                ['media_gallery'],
+                ['image']
+            )
+            ->willReturnOnConsecutiveCalls(
+                ['images' => '{"9rm40a2fvqd":{"position":"1","media_type":"image","video_provider":"","file":"\/k\/i\/test.jpeg.tmp","value_id":"","label":"","disabled":"0","removed":"","video_url":"","video_title":"","video_description":"","video_metadata":"","role":""}}'],
+                '/h/e/headshot.jpeg.tmp'
+            );
 
-        $this->json->expects($this->once())
+        $productMock->expects($this->once())
+            ->method('getIsDuplicate')
+            ->willReturn(false);
+
+        $this->jsonMock->expects($this->once())
             ->method('unserialize')
-            ->with('{"9rm40a2fvqd":{"position":"1","media_type":"image","video_provider":"","file":"\/k\/i\/kitteh_1.jpeg.tmp","value_id":"","label":"","disabled":"0","removed":"","video_url":"","video_title":"","video_description":"","video_metadata":"","role":""}}')
+            ->with('{"9rm40a2fvqd":{"position":"1","media_type":"image","video_provider":"","file":"\/k\/i\/test.jpeg.tmp","value_id":"","label":"","disabled":"0","removed":"","video_url":"","video_title":"","video_description":"","video_metadata":"","role":""}}')
             ->willReturn([
                 "9rm40a2fvqd" => [
                     "position" => "1",
                     "media_type" => "image",
                     "video_provider" => "",
-                    "file" => "/k/i/kitteh_1.jpeg.tmp",
+                    "file" => "/k/i/test.jpeg.tmp",
                     "value_id" => "",
                     "label" => "",
                     "disabled" => "0",
@@ -295,52 +294,67 @@ class CreateHandlerTest extends TestCase
                 ]
             ]);
 
-        $productMock->expects($this->once())
-            ->method('getIsDuplicate')
-            ->willReturn(false);
-
         $driverMock = $this->createPartialMock(
             File::class,
             ['getRealPathSafety']
         );
 
-        $this->mediaDirectory->expects($this->once())
+        $this->mediaDirectoryMock->expects($this->once())
             ->method('getDriver')
             ->willReturn($driverMock);
 
         $driverMock->expects($this->once())
             ->method('getRealPathSafety')
-            ->with("/k/i/kitteh_1.jpeg.tmp")
-            ->willReturn('/k/i/kitteh_1.jpeg.tmp');
+            ->with("/k/i/test.jpeg.tmp")
+            ->willReturn('/k/i/test.jpeg.tmp');
 
-        $this->filestorageDb->expects($this->exactly(2))
+        $this->filestorageDbMock->expects($this->exactly(2))
             ->method('checkDbUsage')
-            ->willReturn(true);
+            ->willReturn(false);
 
-        $this->mediaConfig->expects($this->once())
+        $this->mediaConfigMock->expects($this->once())
+            ->method('getMediaPath')
+            ->willReturn('/k/i/test.jpeg');
+
+        $this->mediaDirectoryMock->expects($this->once())
+            ->method('getAbsolutePath')
+            ->with('/k/i/test.jpeg')
+            ->willReturn('B');
+
+        $this->mediaConfigMock->expects($this->once())
             ->method('getBaseMediaUrlAddition')
             ->willReturn('catalog/product');
 
-        $this->filestorageDb->expects($this->once())
+        $this->filestorageDbMock->expects($this->once())
             ->method('getUniqueFilename')
-            ->with('catalog/product', '/k/i/kitteh_1.jpeg')
-            ->willReturn('catalog/product/k/i/kitteh_1.jpeg');
+            ->with('catalog/product', '/k/i/test.jpeg')
+            ->willReturn('catalog/product/k/i/test.jpeg');
 
-        $this->filestorageDb->expects($this->once())
+        $this->filestorageDbMock->expects($this->once())
             ->method('renameFile')
             ->with('tmpMediaShortUrl', 'mediaShortUrl');
 
-        $this->mediaConfig->expects($this->once())
+        $this->mediaConfigMock->expects($this->once())
             ->method('getTmpMediaShortUrl')
-            ->with('/k/i/kitteh_1.jpeg')
+            ->with('/k/i/test.jpeg')
             ->willReturn('tmpMediaShortUrl');
 
-        $this->mediaConfig->expects($this->once())
+        $this->mediaConfigMock->expects($this->once())
             ->method('getMediaShortUrl')
-            ->with('catalog/product/k/i/kitteh_1.jpeg')
+            ->with('catalog/product/k/i/test.jpeg')
             ->willReturn('mediaShortUrl');
 
-        $this->mediaConfig->expects($this->once())
+        $this->mediaConfigMock->expects($this->once())
+            ->method('getTmpMediaPath')
+            ->with('/k/i/test.jpeg')
+            ->willReturn('/k/i/test.jpeg');
+
+        $this->mediaConfigMock->expects($this->once())
+            ->method('getMediaPath')
+            ->with('/k/i/test.jpeg')
+            ->willReturn('/k/i/test.jpeg');
+
+        $this->mediaConfigMock->expects($this->once())
             ->method('getMediaAttributeCodes')
             ->willReturn(["image", "small_image", "thumbnail", "swatch_image"]);
 
@@ -348,20 +362,48 @@ class CreateHandlerTest extends TestCase
             ->method("isObjectNew")
             ->willReturn(true);
 
-        $productMock->expects($this->at(1))
-            ->method('getData')
-            ->with('image');
-
-        $this->storeManager->expects($this->once())
+        $this->storeManagerMock->expects($this->once())
             ->method('hasSingleStore')
             ->willReturn(true);
 
-        $this->storeManager->expects($this->once())
+        $this->storeManagerMock->expects($this->once())
             ->method('getStores')
-            ->willReturn([0]);
+            ->willReturn([]);
 
-        $returnValue = $this->model->execute($productMock, []);
+        $this->resourceModelMock->expects($this->once())
+            ->method('getProductImages')
+            ->with($productMock, [0])
+            ->willReturn([]);
 
-        $this->assertSame($returnValue, $productMock);
+        $productMock->expects($this->once())
+            ->method('setData')
+            ->with('image', '/k/i/test.jpg');
+
+        $productMock->expects($this->once())
+            ->method('addAttributeUpdate')
+            ->with('image', '', 0);
+
+        $this->model->execute($productMock, []);
+    }
+
+    /**
+     * Set property values using reflection
+     *
+     * @param $object
+     * @param $propertyValueArray
+     * @return mixed
+     * @throws \ReflectionException
+     */
+    protected function setPropertyValues(&$object, $propertyValueArray)
+    {
+        $reflection = new \ReflectionClass(get_class($object));
+
+        foreach ($propertyValueArray as $property => $value) {
+            $reflectionProperty = $reflection->getProperty($property);
+            $reflectionProperty->setAccessible(true);
+            $reflectionProperty->setValue($object, $value);
+        }
+
+        return $object;
     }
 }

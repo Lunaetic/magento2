@@ -349,7 +349,7 @@ class Handler
                 ? $this->mediaDirectory->getAbsolutePath($this->mediaConfig->getTmpMediaPath($file))
                 : $this->mediaDirectory->getAbsolutePath($this->mediaConfig->getMediaPath($file));
             // phpcs:disable Magento2.Functions.DiscouragedFunction
-            $destFile = dirname($file) . '/' . FileUploader::getNewFileName($destinationFile);
+            $destFile = dirname($file) . '/' . $this->getNewFileName($destinationFile);
         }
 
         return $destFile;
@@ -406,7 +406,7 @@ class Handler
          * @see \Magento\Catalog\Model\ResourceModel\AbstractResource::_saveAttributeValue
          */
         if ($storeId === Store::DEFAULT_STORE_ID
-            || $this->storeManager->hasSingleStore() // HERE
+            || $this->storeManager->hasSingleStore()
             || $this->getMediaAttributeStoreValue($product, $mediaAttrCode, $storeId) !== null
         ) {
             $value = $product->getData($mediaAttrCode);
@@ -505,5 +505,16 @@ class Handler
                 $product->getStoreId()
             );
         }
+    }
+
+    /**
+     * Wraps static call to FileUploader::getNewFileName(…) so it can be unit tested
+     *
+     * @param string $fileName
+     * @return string
+     */
+    public function getNewFileName(string $fileName): string
+    {
+        return FileUploader::getNewFileName($fileName);
     }
 }
