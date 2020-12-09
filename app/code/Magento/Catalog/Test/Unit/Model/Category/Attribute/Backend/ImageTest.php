@@ -13,6 +13,7 @@ use Magento\Eav\Model\Entity\Attribute\AbstractAttribute;
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\DataObject;
 use Magento\Framework\Exception\FileSystemException;
+use Magento\Framework\File\Uploader;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Filesystem\Directory\ReadInterface;
 use Magento\Framework\Filesystem\Directory\WriteInterface;
@@ -66,6 +67,11 @@ class ImageTest extends TestCase
     private $storeMock;
 
     /**
+     * @var Uploader|MockObject
+     */
+    private $uploaderMock;
+
+    /**
      * @inheritdoc
      */
     protected function setUp(): void
@@ -108,6 +114,10 @@ class ImageTest extends TestCase
             ->getMock();
 
         $this->filesystem = $this->getMockBuilder(Filesystem::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $this->uploaderMock = $this->getMockBuilder(Uploader::class)
             ->disableOriginalConstructor()
             ->getMock();
     }
@@ -200,6 +210,10 @@ class ImageTest extends TestCase
             ->with(DirectoryList::MEDIA)
             ->willReturn($mediaDirectoryMock);
         $this->imageUploader->expects($this->once())->method('getBasePath')->willReturn('base/path');
+        $this->uploaderMock->expects($this->once())
+            ->method('getNewFileName')
+            ->with('absolute/path/base/path/test123.jpg')
+            ->willReturn('test123.jpg');
         $mediaDirectoryMock->expects($this->once())
             ->method('getAbsolutePath')
             ->with('base/path/test123.jpg')
@@ -344,13 +358,18 @@ class ImageTest extends TestCase
         $objectManagerMock = $this->createPartialMock(\Magento\Framework\App\ObjectManager::class, ['get']);
 
         $imageUploaderMock = $this->imageUploader;
+        $uploaderMock = $this->uploaderMock;
 
         $objectManagerMock->expects($this->any())
             ->method('get')
             ->willReturnCallback(
-                function ($class, $params = []) use ($imageUploaderMock) {
+                function ($class, $params = []) use ($imageUploaderMock, $uploaderMock) {
                     if ($class == "\Magento\Catalog\CategoryImageUpload") {
                         return $imageUploaderMock;
+                    }
+
+                    if ($class == "\Magento\Framework\File\Upload") {
+                        return $uploaderMock;
                     }
 
                     return $this->objectManager->get($class, $params);
@@ -363,7 +382,8 @@ class ImageTest extends TestCase
                 'objectManager' => $objectManagerMock,
                 'logger' => $this->logger,
                 'filesystem' => $this->filesystem,
-                'storeManager' => $this->storeManagerInterfaceMock
+                'storeManager' => $this->storeManagerInterfaceMock,
+                'uploader' => $this->uploaderMock
             ]
         );
         $this->objectManager->setBackwardCompatibleProperty($model, 'imageUploader', $this->imageUploader);
