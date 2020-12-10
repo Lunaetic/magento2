@@ -574,6 +574,20 @@ class CreateHandlerTest extends TestCase
         $this->model->execute($productMock, []);
     }
 
+    public function testExecuteValueIsArrayDuplicateNotDbStorageSingleStore()
+    {}
+
+    public function testExecuteValueIsArrayDuplicateDbStorageSingleStore()
+    {}
+
+    public function testExecuteValueIsArrayNotDuplicateDbStorageSingleStore()
+    {}
+
+    public function testExecuteValueIsArrayNotDuplicateDbStorageNotSingleStore()
+    {}
+
+    // The proliferation of these test cases means definitely that the underlying logic needs to be broken up more
+
     /**
      * Set property values using reflection
      *
@@ -582,7 +596,7 @@ class CreateHandlerTest extends TestCase
      * @return mixed
      * @throws \ReflectionException
      */
-    protected function setPropertyValues(&$object, $propertyValueArray)
+    private function setPropertyValues(&$object, $propertyValueArray)
     {
         $reflection = new \ReflectionClass(get_class($object));
 
