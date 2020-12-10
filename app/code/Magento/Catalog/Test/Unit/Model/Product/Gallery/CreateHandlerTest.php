@@ -112,7 +112,7 @@ class CreateHandlerTest extends TestCase
 
         $this->metadataMock = $this->createPartialMock(
             EntityMetadata::class,
-            []
+            ['getLinkField']
         );
 
         $this->mediaConfigMock = $this->createPartialMock(
@@ -142,7 +142,7 @@ class CreateHandlerTest extends TestCase
 
         $this->resourceModelMock = $this->createPartialMock(
             Gallery::class,
-            ['getProductImages']
+            ['bindValueToEntity', 'getProductImages', 'insertGallery', 'insertGalleryValueInStore']
         );
 
         $this->model = $this->createPartialMock(
@@ -238,14 +238,15 @@ class CreateHandlerTest extends TestCase
      */
     public function testExecuteValueContainsJsonNotDuplicateNotDbStorageSingleStore()
     {
-        $productMock = $this->createPartialMock(
-            Product::class,
-            ['addAttributeUpdate', 'getData', 'getIsDuplicate', 'isObjectNew', 'setData']
-        );
+        $productMock = $this->getMockBuilder(Product::class)
+            ->onlyMethods(['addAttributeUpdate', 'getData', 'getStoreId', 'isObjectNew', 'setData'])
+            ->addMethods(['getIsDuplicate'])
+            ->disableOriginalConstructor()
+            ->getMock();
 
         $attributeMock = $this->createPartialMock(
             Attribute::class,
-            ['getAttributeCode']
+            ['getAttributeCode', 'getAttributeId']
         );
 
         $attributeMock->expects($this->once())
@@ -257,18 +258,40 @@ class CreateHandlerTest extends TestCase
             ->with('media_gallery')
             ->willReturn($attributeMock);
 
-        $productMock->expects($this->exactly(4))
+        $productMock->expects($this->exactly(13))
             ->method('getData')
             ->withConsecutive(
                 ['media_gallery'],
-                ['image']
+                ['image'],
+                ['image'],
+                ['image_label'],
+                ['small_image'],
+                ['small_image'],
+                ['small_image_label'],
+                ['thumbnail'],
+                ['thumbnail'],
+                ['thumbnail_label'],
+                ['swatch_image'],
+                ['link_field'],
+                ['link_field']
             )
             ->willReturnOnConsecutiveCalls(
                 ['images' => '{"9rm40a2fvqd":{"position":"1","media_type":"image","video_provider":"","file":"\/k\/i\/test.jpeg.tmp","value_id":"","label":"","disabled":"0","removed":"","video_url":"","video_title":"","video_description":"","video_metadata":"","role":""}}'],
-                '/h/e/headshot.jpeg.tmp'
+                '/k/i/test.jpg',
+                '/k/i/test.jpg',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                ''
             );
 
-        $productMock->expects($this->once())
+        $productMock->expects($this->exactly(2))
             ->method('getIsDuplicate')
             ->willReturn(false);
 
@@ -323,16 +346,7 @@ class CreateHandlerTest extends TestCase
         $this->model->expects($this->once())
             ->method('getNewFileName')
             ->with('/k/i/test.jpeg')
-            ->willReturn('/k/i/test.jpeg');
-
-        $this->mediaConfigMock->expects($this->once())
-            ->method('getBaseMediaUrlAddition')
-            ->willReturn('catalog/product');
-
-        $this->filestorageDbMock->expects($this->once())
-            ->method('getUniqueFilename')
-            ->with('catalog/product', '/k/i/test.jpeg')
-            ->willReturn('catalog/product/k/i/test.jpeg');
+            ->willReturn('test.jpeg');
 
         $this->mediaConfigMock->expects($this->once())
             ->method('getTmpMediaPath')
@@ -347,30 +361,48 @@ class CreateHandlerTest extends TestCase
             ->method('getMediaAttributeCodes')
             ->willReturn(["image", "small_image", "thumbnail", "swatch_image"]);
 
-        $productMock->expects($this->exactly(2))
+        $productMock->expects($this->exactly(4))
             ->method("isObjectNew")
             ->willReturn(true);
-//
-//        $this->storeManagerMock->expects($this->once())
-//            ->method('hasSingleStore')
-//            ->willReturn(true);
-//
-//        $this->storeManagerMock->expects($this->once())
-//            ->method('getStores')
-//            ->willReturn([]);
-//
-//        $this->resourceModelMock->expects($this->once())
-//            ->method('getProductImages')
-//            ->with($productMock, [0])
-//            ->willReturn([]);
-//
-//        $productMock->expects($this->once())
-//            ->method('setData')
-//            ->with('image', '/k/i/test.jpg');
-//
-//        $productMock->expects($this->once())
-//            ->method('addAttributeUpdate')
-//            ->with('image', '', 0);
+
+        $attributeMock->expects($this->once())
+            ->method('getAttributeId')
+            ->willReturn(42);
+
+        $this->resourceModelMock->expects($this->once())
+            ->method('insertGallery')
+            ->with([
+                'value' => '/k/i/test.jpeg',
+                'attribute_id' => 42,
+                'media_type' => 'image'
+            ])
+            ->willReturn(23);
+
+        $this->resourceModelMock->expects($this->once())
+            ->method('bindValueToEntity')
+            ->with(23, '');
+
+        $this->metadataMock->expects($this->exactly(3))
+            ->method('getLinkField')
+            ->willReturn('link_field');
+
+        $productMock->expects($this->once())
+            ->method('getStoreId')
+            ->willReturn(0);
+
+        $this->resourceModelMock->expects($this->once())
+            ->method('insertGalleryValueInStore')
+            ->with([
+                'value' => '/k/i/test.jpeg',
+                'attribute_id' => 42,
+                'media_type' => 'image',
+                'value_id' => 23,
+                'label' => '',
+                'position' => 1,
+                'disabled' => 0,
+                'store_id' => 0,
+                'link_field' => 0
+            ]);
 
         $this->model->execute($productMock, []);
     }
