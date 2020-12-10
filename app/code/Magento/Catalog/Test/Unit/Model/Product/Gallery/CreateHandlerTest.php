@@ -408,6 +408,173 @@ class CreateHandlerTest extends TestCase
     }
 
     /**
+     * @throws LocalizedException
+     */
+    public function testExecuteValueIsArrayNotDuplicateNotDbStorageSingleStore()
+    {
+        $productMock = $this->getMockBuilder(Product::class)
+            ->onlyMethods(['addAttributeUpdate', 'getData', 'getStoreId', 'isObjectNew', 'setData'])
+            ->addMethods(['getIsDuplicate'])
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $attributeMock = $this->createPartialMock(
+            Attribute::class,
+            ['getAttributeCode', 'getAttributeId']
+        );
+
+        $attributeMock->expects($this->once())
+            ->method('getAttributeCode')
+            ->willReturn('media_gallery');
+
+        $this->attributeRepositoryMock->expects($this->once())
+            ->method('get')
+            ->with('media_gallery')
+            ->willReturn($attributeMock);
+
+        $productMock->expects($this->exactly(13))
+            ->method('getData')
+            ->withConsecutive(
+                ['media_gallery'],
+                ['image'],
+                ['image'],
+                ['image_label'],
+                ['small_image'],
+                ['small_image'],
+                ['small_image_label'],
+                ['thumbnail'],
+                ['thumbnail'],
+                ['thumbnail_label'],
+                ['swatch_image'],
+                ['link_field'],
+                ['link_field']
+            )
+            ->willReturnOnConsecutiveCalls(
+                ['images' => [ '9rm40a2fvqd' => ['position' => 1,
+                            'media_type' => 'image',
+                            'video_provider' => '',
+                            'file' => '/k/i/test.jpeg.tmp',
+                            'value_id' => '',
+                            'label' => '',
+                            'disabled' => 0,
+                            'removed' => '',
+                            'video_url' => '',
+                            'video_title' => '',
+                            'video_description' => '',
+                            'video_metadata' => '',
+                            'role' => '']
+                        ]
+                    ],
+                '/k/i/test.jpg',
+                '/k/i/test.jpg',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                ''
+            );
+
+        $productMock->expects($this->exactly(2))
+            ->method('getIsDuplicate')
+            ->willReturn(false);
+
+        $driverMock = $this->createPartialMock(
+            File::class,
+            ['getRealPathSafety']
+        );
+
+        $this->mediaDirectoryMock->expects($this->once())
+            ->method('getDriver')
+            ->willReturn($driverMock);
+
+        $driverMock->expects($this->once())
+            ->method('getRealPathSafety')
+            ->with("/k/i/test.jpeg.tmp")
+            ->willReturn('/k/i/test.jpeg.tmp');
+
+        $this->filestorageDbMock->expects($this->exactly(2))
+            ->method('checkDbUsage')
+            ->willReturn(false);
+
+        $this->mediaConfigMock->expects($this->exactly(2))
+            ->method('getMediaPath')
+            ->willReturn('/k/i/test.jpeg');
+
+        $this->mediaDirectoryMock->expects($this->once())
+            ->method('getAbsolutePath')
+            ->with('/k/i/test.jpeg')
+            ->willReturn('/k/i/test.jpeg');
+
+        $this->model->expects($this->once())
+            ->method('getNewFileName')
+            ->with('/k/i/test.jpeg')
+            ->willReturn('test.jpeg');
+
+        $this->mediaConfigMock->expects($this->once())
+            ->method('getTmpMediaPath')
+            ->with('/k/i/test.jpeg')
+            ->willReturn('/k/i/test.jpeg');
+
+        $this->mediaDirectoryMock->expects($this->once())
+            ->method('renameFile')
+            ->with('/k/i/test.jpeg', '/k/i/test.jpeg');
+
+        $this->mediaConfigMock->expects($this->once())
+            ->method('getMediaAttributeCodes')
+            ->willReturn(["image", "small_image", "thumbnail", "swatch_image"]);
+
+        $productMock->expects($this->exactly(4))
+            ->method("isObjectNew")
+            ->willReturn(true);
+
+        $attributeMock->expects($this->once())
+            ->method('getAttributeId')
+            ->willReturn(42);
+
+        $this->resourceModelMock->expects($this->once())
+            ->method('insertGallery')
+            ->with([
+                'value' => '/k/i/test.jpeg',
+                'attribute_id' => 42,
+                'media_type' => 'image'
+            ])
+            ->willReturn(23);
+
+        $this->resourceModelMock->expects($this->once())
+            ->method('bindValueToEntity')
+            ->with(23, '');
+
+        $this->metadataMock->expects($this->exactly(3))
+            ->method('getLinkField')
+            ->willReturn('link_field');
+
+        $productMock->expects($this->once())
+            ->method('getStoreId')
+            ->willReturn(0);
+
+        $this->resourceModelMock->expects($this->once())
+            ->method('insertGalleryValueInStore')
+            ->with([
+                'value' => '/k/i/test.jpeg',
+                'attribute_id' => 42,
+                'media_type' => 'image',
+                'value_id' => 23,
+                'label' => '',
+                'position' => 1,
+                'disabled' => 0,
+                'store_id' => 0,
+                'link_field' => 0
+            ]);
+
+        $this->model->execute($productMock, []);
+    }
+
+    /**
      * Set property values using reflection
      *
      * @param $object
