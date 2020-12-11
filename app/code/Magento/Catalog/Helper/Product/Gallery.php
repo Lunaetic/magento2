@@ -21,7 +21,6 @@ use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Filesystem\Directory\WriteInterface;
-use Magento\Framework\Serialize\Serializer\Json;
 use Magento\MediaStorage\Helper\File\Storage\Database;
 use Magento\MediaStorage\Model\File\Uploader as FileUploader;
 use Magento\Store\Model\Store;
@@ -58,11 +57,6 @@ class Gallery
      * @var array
      */
     protected $imagesGallery;
-
-    /**
-     * @var Json
-     */
-    protected $json;
 
     /**
      * @var array
@@ -109,7 +103,6 @@ class Gallery
      * @param Database $fileStorageDb
      * @param Filesystem $filesystem
      * @param GalleryResource $resourceModel
-     * @param Json $json
      * @param Config $mediaConfig
      * @param MetadataPool $metadataPool
      * @param StoreManagerInterface $storeManager
@@ -122,7 +115,6 @@ class Gallery
         Database $fileStorageDb,
         Filesystem $filesystem,
         GalleryResource $resourceModel,
-        Json $json,
         Config $mediaConfig,
         MetadataPool $metadataPool,
         StoreManagerInterface $storeManager
@@ -131,14 +123,11 @@ class Gallery
         $this->attributeValue = $attributeValue;
         $this->fileStorageDb = $fileStorageDb;
         $this->resourceModel = $resourceModel;
-        $this->json = $json;
         $this->mediaConfig = $mediaConfig;
         $this->storeManager = $storeManager;
 
         $this->mediaDirectory = $filesystem->getDirectoryWrite(DirectoryList::MEDIA);
         $this->metadata = $metadataPool->getMetadata(ProductInterface::class);
-
-
     }
 
     /**
