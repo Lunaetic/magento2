@@ -6,6 +6,8 @@
 
 namespace Magento\ProductVideo\Model\Plugin\Catalog\Product\Gallery;
 
+use Magento\Catalog\Helper\Product\Gallery as GalleryHelper;
+use Magento\Catalog\Model\ResourceModel\Product\Gallery;
 use Magento\ProductVideo\Model\Product\Attribute\Media\ExternalVideoEntryConverter;
 
 /**
@@ -14,9 +16,30 @@ use Magento\ProductVideo\Model\Product\Attribute\Media\ExternalVideoEntryConvert
 class CreateHandler extends AbstractHandler
 {
     /**
+     * @var Gallery
+     */
+    protected $resourceModel;
+
+    /**
+     * @var GalleryHelper
+     */
+    protected $galleryHelper;
+
+    /**
      * Key to store additional data from other stores
      */
     const ADDITIONAL_STORE_DATA_KEY = 'additional_store_data';
+
+    /**
+     * @param Gallery $resourceModel
+     * @param GalleryHelper $galleryHelper
+     */
+    public function __construct(Gallery $resourceModel, GalleryHelper $galleryHelper)
+    {
+        parent::__construct($resourceModel);
+
+        $this->galleryHelper = $galleryHelper;
+    }
 
     /**
      * Execute before Plugin
@@ -26,6 +49,7 @@ class CreateHandler extends AbstractHandler
      * @param array $arguments
      * @return void
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     * @throws \Magento\Framework\Exception\NoSuchEntityException
      */
     public function beforeExecute(
         \Magento\Catalog\Model\Product\Gallery\CreateHandler $mediaGalleryCreateHandler,
@@ -33,7 +57,7 @@ class CreateHandler extends AbstractHandler
         array $arguments = []
     ) {
         /** @var \Magento\Catalog\Model\ResourceModel\Eav\Attribute $attribute */
-        $attribute = $mediaGalleryCreateHandler->getAttribute();
+        $attribute = $this->galleryHelper->getAttribute();
         $mediaCollection = $this->getMediaEntriesDataCollection($product, $attribute);
         if (!empty($mediaCollection)) {
             $storeDataCollection = $this->loadStoreViewVideoData($mediaCollection, $product->getStoreId());
@@ -58,7 +82,7 @@ class CreateHandler extends AbstractHandler
     ) {
         $mediaCollection = $this->getMediaEntriesDataCollection(
             $product,
-            $mediaGalleryCreateHandler->getAttribute()
+            $this->galleryHelper->getAttribute()
         );
 
         if (!empty($mediaCollection)) {

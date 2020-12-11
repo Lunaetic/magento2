@@ -108,7 +108,7 @@ class Gallery
      * @param AttributeValue $attributeValue
      * @param Database $fileStorageDb
      * @param Filesystem $filesystem
-     * @param Gallery $resourceModel
+     * @param GalleryResource $resourceModel
      * @param Json $json
      * @param Config $mediaConfig
      * @param MetadataPool $metadataPool
@@ -121,7 +121,7 @@ class Gallery
         AttributeValue $attributeValue,
         Database $fileStorageDb,
         Filesystem $filesystem,
-        Gallery $resourceModel,
+        GalleryResource $resourceModel,
         Json $json,
         Config $mediaConfig,
         MetadataPool $metadataPool,
