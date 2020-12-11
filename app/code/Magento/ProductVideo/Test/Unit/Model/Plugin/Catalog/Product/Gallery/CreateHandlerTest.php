@@ -47,6 +47,8 @@ class CreateHandlerTest extends TestCase
      */
     protected $mediaGalleryCreateHandler;
 
+    protected $galleryHelper;
+
     /**
      * {@inheritDoc}
      */
@@ -65,12 +67,15 @@ class CreateHandlerTest extends TestCase
             \Magento\Catalog\Model\Product\Gallery\CreateHandler::class
         );
 
+        $this->galleryHelper = $this->createMock(\Magento\Catalog\Helper\Product\Gallery::class);
+
         $objectManager = new ObjectManager($this);
 
         $this->subject = $objectManager->getObject(
             CreateHandler::class,
             [
-                'resourceModel' => $this->resourceModel
+                'resourceModel' => $this->resourceModel,
+                'galleryHelper' => $this->galleryHelper
             ]
         );
     }
@@ -91,7 +96,7 @@ class CreateHandlerTest extends TestCase
             ->method('getStoreId')
             ->willReturn(0);
 
-        $this->mediaGalleryCreateHandler->expects($this->any())
+        $this->galleryHelper->expects($this->any())
             ->method('getAttribute')
             ->willReturn($this->attribute);
 
@@ -245,7 +250,7 @@ class CreateHandlerTest extends TestCase
             ->with('media_gallery')
             ->willReturn([]);
 
-        $this->mediaGalleryCreateHandler->expects($this->any())
+        $this->galleryHelper->expects($this->any())
             ->method('getAttribute')
             ->willReturn($this->attribute);
 
@@ -355,7 +360,7 @@ class CreateHandlerTest extends TestCase
             ->method('loadDataFromTableByValueId')
             ->willReturn($resourceEntryResult);
 
-        $this->mediaGalleryCreateHandler->expects($this->any())
+        $this->galleryHelper->expects($this->any())
             ->method('getAttribute')
             ->willReturn($this->attribute);
 
