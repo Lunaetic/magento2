@@ -11,7 +11,7 @@ use Magento\Catalog\Helper\Product\Gallery;
 use Magento\Catalog\Model\Product\Media\Config;
 use Magento\Catalog\Model\ResourceModel\Product\Gallery as GalleryResource;
 use Magento\Framework\Exception\LocalizedException;
-use Magento\Framework\Filesystem\Directory\WriteInterface;
+use Magento\Framework\Filesystem\Directory\Write;
 use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -52,7 +52,7 @@ class GalleryTest extends TestCase
         );
 
         $this->mediaDirectoryMock = $this->createPartialMock(
-            WriteInterface::class,
+            Write::class,
             ['isFile']
         );
 
@@ -91,6 +91,8 @@ class GalleryTest extends TestCase
      * @param $countImageUsesReturn
      * @param $returnValue
      * @throws LocalizedException
+     *
+     * @dataProvider getCanDeleteImageDataProvider
      */
     public function testCanDeleteImage($isFileReturn, $countImageUsesReturn, $expected): void
     {
@@ -103,10 +105,12 @@ class GalleryTest extends TestCase
             ->with('base/media/path/test.jpg')
             ->willReturn($isFileReturn);
 
-        $this->resourceModelMock->expects($this->once())
-            ->method('countImageUses')
-            ->with('test.jpg')
-            ->willReturn($countImageUsesReturn);
+        if ($isFileReturn) {
+            $this->resourceModelMock->expects($this->once())
+                ->method('countImageUses')
+                ->with('test.jpg')
+                ->willReturn($countImageUsesReturn);
+        }
 
         $actual = $this->subject->canDeleteImage('test.jpg');
 
