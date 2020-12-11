@@ -8,11 +8,14 @@ declare(strict_types=1);
 namespace Magento\Catalog\Test\Unit\Helper\Product;
 
 use Magento\Catalog\Helper\Product\Gallery;
+use Magento\Catalog\Model\Product;
 use Magento\Catalog\Model\Product\Media\Config;
 use Magento\Catalog\Model\ResourceModel\Product\Gallery as GalleryResource;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Filesystem\Directory\Write;
 use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
+use Magento\Store\Model\Store;
+use Magento\Store\Model\StoreManager;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -31,7 +34,7 @@ class GalleryTest extends TestCase
     protected $mediaConfigMock;
 
     /**
-     * @var WriteInterface|MockObject
+     * @var Write|MockObject
      */
     protected $mediaDirectoryMock;
 
@@ -39,6 +42,11 @@ class GalleryTest extends TestCase
      * @var GalleryResource|MockObject
      */
     protected $resourceModelMock;
+
+    /**
+     * @var StoreManager|MockObject
+     */
+    protected $storeManageMock;
 
     /**
      */
@@ -58,7 +66,12 @@ class GalleryTest extends TestCase
 
         $this->resourceModelMock = $this->createPartialMock(
             GalleryResource::class,
-            ['countImageUses']
+            ['countImageUses', 'getProductImages']
+        );
+
+        $this->storeManageMock = $this->createPartialMock(
+            StoreManager::class,
+            ['getStores']
         );
 
         $this->subject = $objectManager->getObject(
@@ -66,7 +79,8 @@ class GalleryTest extends TestCase
             [
                 'mediaConfig' => $this->mediaConfigMock,
                 'mediaDirectory' => $this->mediaDirectoryMock,
-                'resourceModel' => $this->resourceModelMock
+                'resourceModel' => $this->resourceModelMock,
+                'storeManager' => $this->storeManageMock
             ]
         );
     }
@@ -89,7 +103,7 @@ class GalleryTest extends TestCase
     /**
      * @param $isFileReturn
      * @param $countImageUsesReturn
-     * @param $returnValue
+     * @param $expected
      * @throws LocalizedException
      *
      * @dataProvider getCanDeleteImageDataProvider
@@ -113,6 +127,121 @@ class GalleryTest extends TestCase
         }
 
         $actual = $this->subject->canDeleteImage('test.jpg');
+
+        $this->assertEquals($expected, $actual);
+    }
+
+    /**
+     * @return array
+     */
+    public function getCanRemoveImageDataProvider(): array
+    {
+        return [
+            [
+                false,
+                [1, 0],
+                [[
+                    'store_id' => 1,
+                    'filepath' => 'test.jpg'
+                ]],
+                true
+            ],
+            [
+                true,
+                [1, 2, 0],
+                [[
+                    'store_id' => 2,
+                    'filepath' => 'test.jpg'
+                ]],
+                false
+            ],
+            [
+                false,
+                [1, 0],
+                [[
+                    'store_id' => 1,
+                    'filepath' => 'nope.jpg'
+                ]],
+                true
+            ]
+        ];
+    }
+
+    /**
+     * @param $includeStoreId2
+     * @param $getProductImagesParams
+     * @param $getProductImagesReturn
+     * @param $expected
+     *
+     * @dataProvider getCanRemoveImageDataProvider
+     */
+    public function testCanRemoveImage($includeStoreId2, $getProductImagesParams, $getProductImagesReturn, $expected)
+    {
+        $productMock = $this->createPartialMock(
+            Product::class,
+            ['getStoreId', 'getWebsiteIds']
+        );
+
+        $storeMock = $this->createPartialMock(
+            Store::class,
+            ['getId', 'getWebsiteId']
+        );
+
+        $this->storeManageMock->expects($this->exactly(2))
+            ->method('getStores')
+            ->willReturnCallback(function () use ($includeStoreId2, $storeMock) {
+                if (!$includeStoreId2) {
+                    return [
+                        1 => $storeMock
+                    ];
+                } else {
+                    return [
+                        1 => $storeMock,
+                        2 => $storeMock
+                    ];
+                }
+            });
+
+        $this->resourceModelMock->expects($this->once())
+            ->method('getProductImages')
+            ->with($productMock, $getProductImagesParams)
+            ->willReturn($getProductImagesReturn);
+
+        $productMock->expects($this->once())
+            ->method('getStoreId')
+            ->willReturn(1);
+
+        if (!$includeStoreId2) {
+            $productMock->expects($this->once())
+                ->method('getWebsiteIds')
+                ->willReturn([
+                    '1'
+                ]);
+
+            $storeMock->expects($this->once())
+                ->method('getWebsiteId')
+                ->willReturn(1);
+
+            $storeMock->expects($this->once())
+                ->method('getId')
+                ->willReturn('1');
+        } else {
+            $productMock->expects($this->once())
+                ->method('getWebsiteIds')
+                ->willReturn([
+                    '1', '2'
+                ]);
+
+            $storeMock->expects($this->exactly(2))
+                ->method('getWebsiteId')
+                ->willReturnOnConsecutiveCalls(1, 2);
+
+            $storeMock->expects($this->exactly(2))
+                ->method('getId')
+                ->willReturn('1', '2');
+        }
+
+        $actual = $this->subject->canRemoveImage($productMock, 'test.jpg');
 
         $this->assertEquals($expected, $actual);
     }
