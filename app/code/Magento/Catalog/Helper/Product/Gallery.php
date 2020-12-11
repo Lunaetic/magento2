@@ -5,14 +5,13 @@
  */
 declare(strict_types=1);
 
-namespace Magento\Catalog\Model\Product\Gallery;
+namespace Magento\Catalog\Helper\Product;
 
 use Exception;
 use Magento\Catalog\Api\Data\ProductAttributeInterface;
 use Magento\Catalog\Api\Data\ProductInterface;
 use Magento\Catalog\Api\ProductAttributeRepositoryInterface;
 use Magento\Catalog\Model\Product\Media\Config;
-use Magento\Catalog\Model\ResourceModel\Product\Gallery;
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\App\ObjectManager;
 use Magento\Framework\EntityManager\EntityMetadata;
@@ -27,18 +26,13 @@ use Magento\MediaStorage\Helper\File\Storage\Database;
 use Magento\MediaStorage\Model\File\Uploader as FileUploader;
 use Magento\Store\Model\Store;
 use Magento\Store\Model\StoreManagerInterface;
+use Magento\Catalog\Model\ResourceModel\Product\Gallery as GalleryResource;
 
 /**
- * Base handler for catalog product gallery CreateHandler, UpdateHandler
- *
- * @api
  */
-class Handler
+class Gallery
 {
-    /**
-     * @var EntityMetadata
-     */
-    protected $metadata;
+    protected const TMP_SUFFIX = '.tmp';
 
     /**
      * @var ProductAttributeInterface
@@ -51,16 +45,24 @@ class Handler
     protected $attributeRepository;
 
     /**
-     * Resource model
-     *
-     * @var Gallery
+     * @var Database
      */
-    protected $resourceModel;
+    protected $fileStorageDb;
+
+    /**
+     * @var array
+     */
+    protected $imagesGallery;
 
     /**
      * @var Json
      */
     protected $json;
+
+    /**
+     * @var array
+     */
+    protected $mediaAttributeCodes;
 
     /**
      * @var Config
@@ -73,19 +75,14 @@ class Handler
     protected $mediaDirectory;
 
     /**
-     * @var Database
+     * @var EntityMetadata
      */
-    protected $fileStorageDb;
+    protected $metadata;
 
     /**
-     * @var array
+     * @var GalleryResource
      */
-    protected $mediaAttributeCodes;
-
-    /**
-     * @var array
-     */
-    protected $imagesGallery;
+    protected $resourceModel;
 
     /**
      * @var  StoreManagerInterface
@@ -105,7 +102,7 @@ class Handler
      * @param MetadataPool $metadataPool
      * @param ProductAttributeRepositoryInterface $attributeRepository
      * @param Gallery $resourceModel
-     * @param Json $json // 31121 Would like to validate that the switch here is compatible
+     * @param Json $json
      * @param Config $mediaConfig
      * @param Filesystem $filesystem
      * @param Database $fileStorageDb
@@ -134,13 +131,11 @@ class Handler
     }
 
     /**
-     * Check possibility to remove image
-     *
      * @param ProductInterface $product
      * @param string $imageFile
      * @return bool
      */
-    protected function canRemoveImage(ProductInterface $product, string $imageFile): bool
+    public function canRemoveImage(ProductInterface $product, string $imageFile): bool
     {
         $canRemoveImage = true;
         $gallery = $this->getImagesForAllStores($product);
@@ -170,13 +165,11 @@ class Handler
     }
 
     /**
-     * Copy image and return new filename.
-     *
      * @param string $file
      * @return string
      * @throws LocalizedException
      */
-    protected function copyImage(string $file): string
+    public function copyImage(string $file): string
     {
         try {
             $destinationFile = $this->getUniqueFileName($file);
@@ -210,14 +203,11 @@ class Handler
     }
 
     /**
-     * Duplicate attribute
-     *
      * @param ProductInterface $product
-     * @return void
-     * @throws NoSuchEntityException
      * @throws LocalizedException
+     * @throws NoSuchEntityException
      */
-    protected function duplicate(ProductInterface $product): void
+    public function duplicate(ProductInterface $product): void
     {
         $mediaGalleryData = $product->getData(
             $this->getAttribute()->getAttributeCode()
@@ -234,8 +224,6 @@ class Handler
     }
 
     /**
-     * Returns media gallery attribute instance
-     *
      * @throws NoSuchEntityException
      */
     public function getAttribute()
@@ -250,23 +238,19 @@ class Handler
     }
 
     /**
-     * Returns file name according to tmp name
-     *
      * @param string $file
      * @return string
      */
-    protected function getFilenameFromTmp(string $file): string
+    public function getFilenameFromTmp(string $file): string
     {
-        return strrpos($file, '.tmp') == strlen($file) - 4 ? substr($file, 0, strlen($file) - 4) : $file;
+        return strrpos($file, self::TMP_SUFFIX) == strlen($file) - 4 ? substr($file, 0, strlen($file) - 4) : $file;
     }
 
     /**
-     * Get product images for all stores
-     *
      * @param ProductInterface $product
      * @return array
      */
-    protected function getImagesForAllStores(ProductInterface $product): array
+    public function getImagesForAllStores(ProductInterface $product): array
     {
         if ($this->imagesGallery ===  null) {
             $storeIds = array_keys($this->storeManager->getStores());
@@ -279,11 +263,9 @@ class Handler
     }
 
     /**
-     * Get Media Attribute Codes cached value
-     *
      * @return array
      */
-    protected function getMediaAttributeCodes(): array
+    public function getMediaAttributeCodes(): array
     {
         if ($this->mediaAttributeCodes === null) {
             $this->mediaAttributeCodes = $this->mediaConfig->getMediaAttributeCodes();
@@ -293,14 +275,12 @@ class Handler
     }
 
     /**
-     * Get media attribute value for store view
-     *
      * @param ProductInterface $product
      * @param string $attributeCode
      * @param int|null $storeId
      * @return string|null
      */
-    private function getMediaAttributeStoreValue(
+    public function getMediaAttributeStoreValue(
         ProductInterface $product,
         string $attributeCode,
         int $storeId = null
@@ -318,12 +298,10 @@ class Handler
     }
 
     /**
-     * Returns safe filename for posted image
-     *
      * @param string $file
      * @return string
      */
-    protected function getSafeFilename(string $file): string
+    public function getSafeFilename(string $file): string
     {
         $file = DIRECTORY_SEPARATOR . ltrim($file, DIRECTORY_SEPARATOR);
 
@@ -331,13 +309,20 @@ class Handler
     }
 
     /**
-     * Check whether file to move exists. Getting unique name
-     *
+     * @param string $fileName
+     * @return string
+     */
+    public function getNewFileName(string $fileName): string
+    {
+        return FileUploader::getNewFileName($fileName);
+    }
+
+    /**
      * @param string $file
      * @param bool $forTmp
      * @return string
      */
-    protected function getUniqueFileName(string $file, $forTmp = false): string
+    public function getUniqueFileName(string $file, $forTmp = false): string
     {
         if ($this->fileStorageDb->checkDbUsage()) {
             $destFile = $this->fileStorageDb->getUniqueFilename(
@@ -356,13 +341,11 @@ class Handler
     }
 
     /**
-     * Move image from temporary directory to normal
-     *
      * @param string $file
      * @return string
      * @throws FileSystemException
      */
-    protected function moveImageFromTmp(string $file): string
+    public function moveImageFromTmp(string $file): string
     {
         $file = $this->getFilenameFromTmp($this->getSafeFilename($file));
         $destinationFile = $this->getUniqueFileName($file);
@@ -386,13 +369,42 @@ class Handler
     }
 
     /**
-     * Process media attribute
-     *
+     * @param ProductInterface $product
+     * @param array $existImages
+     * @param array $newImages
+     * @param array $clearImages
+     * @return void
+     */
+    public function processMediaAttributes(
+        ProductInterface $product,
+        array $existImages,
+        array $newImages,
+        array $clearImages
+    ): void {
+        foreach ($this->getMediaAttributeCodes() as $mediaAttrCode) {
+            $this->processMediaAttribute(
+                $product,
+                $mediaAttrCode,
+                $clearImages,
+                $newImages
+            );
+            if (in_array($mediaAttrCode, $this->mediaAttributesWithLabels)) {
+                $this->processMediaAttributeLabel(
+                    $product,
+                    $mediaAttrCode,
+                    $clearImages,
+                    $newImages,
+                    $existImages
+                );
+            }
+        }
+    }
+
+    /**
      * @param ProductInterface $product
      * @param string $mediaAttrCode
      * @param array $clearImages
      * @param array $newImages
-     * @return void
      */
     private function processMediaAttribute(
         ProductInterface $product,
@@ -427,42 +439,6 @@ class Handler
     }
 
     /**
-     * Update media attributes
-     *
-     * @param ProductInterface $product
-     * @param array $existImages
-     * @param array $newImages
-     * @param array $clearImages
-     * @return void
-     */
-    protected function processMediaAttributes(
-        ProductInterface $product,
-        array $existImages,
-        array $newImages,
-        array $clearImages
-    ): void {
-        foreach ($this->getMediaAttributeCodes() as $mediaAttrCode) {
-            $this->processMediaAttribute(
-                $product,
-                $mediaAttrCode,
-                $clearImages,
-                $newImages
-            );
-            if (in_array($mediaAttrCode, $this->mediaAttributesWithLabels)) {
-                $this->processMediaAttributeLabel(
-                    $product,
-                    $mediaAttrCode,
-                    $clearImages,
-                    $newImages,
-                    $existImages
-                );
-            }
-        }
-    }
-
-    /**
-     * Process media attribute label
-     *
      * @param ProductInterface $product
      * @param string $mediaAttrCode
      * @param array $clearImages
@@ -505,16 +481,5 @@ class Handler
                 $product->getStoreId()
             );
         }
-    }
-
-    /**
-     * Wraps static call to FileUploader::getNewFileName(…) so it can be unit tested
-     *
-     * @param string $fileName
-     * @return string
-     */
-    public function getNewFileName(string $fileName): string
-    {
-        return FileUploader::getNewFileName($fileName);
     }
 }
