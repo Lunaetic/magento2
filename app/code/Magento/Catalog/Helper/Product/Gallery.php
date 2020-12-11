@@ -12,8 +12,8 @@ use Magento\Catalog\Api\Data\ProductAttributeInterface;
 use Magento\Catalog\Api\Data\ProductInterface;
 use Magento\Catalog\Api\ProductAttributeRepositoryInterface;
 use Magento\Catalog\Model\Product\Media\Config;
+use Magento\Eav\Model\ResourceModel\AttributeValue;
 use Magento\Framework\App\Filesystem\DirectoryList;
-use Magento\Framework\App\ObjectManager;
 use Magento\Framework\EntityManager\EntityMetadata;
 use Magento\Framework\EntityManager\MetadataPool;
 use Magento\Framework\Exception\FileSystemException;
@@ -43,6 +43,11 @@ class Gallery
      * @var ProductAttributeRepositoryInterface
      */
     protected $attributeRepository;
+
+    /**
+     * @var AttributeValue
+     */
+    protected $attributeValue;
 
     /**
      * @var Database
@@ -99,35 +104,53 @@ class Gallery
     ];
 
     /**
-     * @param MetadataPool $metadataPool
      * @param ProductAttributeRepositoryInterface $attributeRepository
+     * @param AttributeValue $attributeValue
+     * @param Database $fileStorageDb
+     * @param Filesystem $filesystem
      * @param Gallery $resourceModel
      * @param Json $json
      * @param Config $mediaConfig
-     * @param Filesystem $filesystem
-     * @param Database $fileStorageDb
-     * @param StoreManagerInterface|null $storeManager
+     * @param MetadataPool $metadataPool
+     * @param StoreManagerInterface $storeManager
      * @throws FileSystemException
      * @throws Exception
      */
     public function __construct(
-        MetadataPool $metadataPool,
         ProductAttributeRepositoryInterface $attributeRepository,
+        AttributeValue $attributeValue,
+        Database $fileStorageDb,
+        Filesystem $filesystem,
         Gallery $resourceModel,
         Json $json,
         Config $mediaConfig,
-        Filesystem $filesystem,
-        Database $fileStorageDb,
-        StoreManagerInterface $storeManager = null
+        MetadataPool $metadataPool,
+        StoreManagerInterface $storeManager
     ) {
-        $this->metadata = $metadataPool->getMetadata(ProductInterface::class);
         $this->attributeRepository = $attributeRepository;
+        $this->attributeValue = $attributeValue;
+        $this->fileStorageDb = $fileStorageDb;
         $this->resourceModel = $resourceModel;
         $this->json = $json;
         $this->mediaConfig = $mediaConfig;
+        $this->storeManager = $storeManager;
+
         $this->mediaDirectory = $filesystem->getDirectoryWrite(DirectoryList::MEDIA);
-        $this->fileStorageDb = $fileStorageDb;
-        $this->storeManager = $storeManager ?: ObjectManager::getInstance()->get(StoreManagerInterface::class);
+        $this->metadata = $metadataPool->getMetadata(ProductInterface::class);
+
+
+    }
+
+    /**
+     * @param string $file
+     * @return bool
+     * @throws LocalizedException
+     */
+    public function canDeleteImage(string $file): bool
+    {
+        $catalogPath = $this->mediaConfig->getBaseMediaPath();
+        return $this->mediaDirectory->isFile($catalogPath . $file)
+            && $this->resourceModel->countImageUses($file) <= 1;
     }
 
     /**
@@ -199,6 +222,34 @@ class Gallery
             throw new LocalizedException(
                 __('We couldn\'t copy file %1. Please delete media with non-existing images and try again.', $file)
             );
+        }
+    }
+
+    /**
+     * @param ProductInterface $product
+     * @param array $images
+     * @throws LocalizedException
+     */
+    private function deleteMediaAttributeValues(ProductInterface $product, array $images): void
+    {
+        if ($images) {
+            $values = $this->attributeValue->getValues(
+                ProductInterface::class,
+                (int)$product->getData($this->metadata->getLinkField()),
+                $this->mediaConfig->getMediaAttributeCodes()
+            );
+            $valuesToDelete = [];
+            foreach ($values as $value) {
+                if (in_array($value['value'], $images, true)) {
+                    $valuesToDelete[] = $value;
+                }
+            }
+            if ($valuesToDelete) {
+                $this->attributeValue->deleteValues(
+                    ProductInterface::class,
+                    $valuesToDelete
+                );
+            }
         }
     }
 
@@ -370,6 +421,72 @@ class Gallery
 
     /**
      * @param ProductInterface $product
+     * @param array $images
+     * @throws LocalizedException
+     */
+    public function processDeletedImages(ProductInterface $product, array &$images): void
+    {
+        $filesToDelete = [];
+        $recordsToDelete = [];
+        $imagesToDelete = [];
+        $imagesToNotDelete = []; // 31121 Due to refactoring, if they've made it here, this check isn't necessary; check below as well!
+        foreach ($images as $image) {
+            if (empty($image['removed'])) {
+                $imagesToNotDelete[] = $image['file'];
+            }
+        }
+
+        foreach ($images as $image) {
+            if (!empty($image['removed'])) {
+                if (!empty($image['value_id'])) {
+                    if (preg_match('/\.\.(\\\|\/)/', $image['file'])) {
+                        continue;
+                    }
+                    $recordsToDelete[] = $image['value_id'];
+                    if (!in_array($image['file'], $imagesToNotDelete)) {
+                        $imagesToDelete[] = $image['file'];
+                        if ($this->canDeleteImage($image['file'])) {
+                            $filesToDelete[] = ltrim($image['file'], '/');
+                        }
+                    }
+                }
+            }
+        }
+
+        $this->deleteMediaAttributeValues($product, $imagesToDelete);
+        $this->resourceModel->deleteGallery($recordsToDelete);
+        $this->removeDeletedImages($filesToDelete);
+    }
+
+    /**
+     * @param ProductInterface $product
+     * @param array $images
+     */
+    public function processExistingImages(ProductInterface $product, array &$images): void
+    {
+        foreach ($images as &$image) {
+            $existingData = $this->resourceModel->loadDataFromTableByValueId(GalleryResource::GALLERY_VALUE_TABLE, [$image['value_id']], $product->getStoreId());
+
+            if ($existingData) {
+                $existingData = $existingData[0];
+
+                if ($existingData['label'] != $image['label'] ||
+                    $existingData['position'] != $image['position'] ||
+                    $existingData['disabled'] != $image['disabled']) {
+                    // Update per store labels, position, disabled
+                    $existingData['label'] = isset($image['label']) ? $image['label'] : '';
+                    $existingData['position'] = isset($image['position']) ? (int) $image['position'] : 0;
+                    $existingData['disabled'] = isset($image['disabled']) ? (int) $image['disabled'] : 0;
+                    $existingData['store_id'] = (int) $product->getStoreId();
+
+                    $this->resourceModel->updateGalleryValueInStore($existingData);
+                }
+            }
+        }
+    }
+
+    /**
+     * @param ProductInterface $product
      * @param array $existImages
      * @param array $newImages
      * @param array $clearImages
@@ -402,11 +519,34 @@ class Gallery
 
     /**
      * @param ProductInterface $product
+     * @param array $images
+     * @throws LocalizedException
+     */
+    public function processNewImages(ProductInterface $product, array &$images): void
+    {
+        foreach ($images as &$image) {
+            $data = $this->processNewImage($product, $image);
+
+            // Add per store labels, position, disabled
+            $data['value_id'] = $image['value_id'];
+            $data['label'] = isset($image['label']) ? $image['label'] : '';
+            $data['position'] = isset($image['position']) ? (int)$image['position'] : 0;
+            $data['disabled'] = isset($image['disabled']) ? (int)$image['disabled'] : 0;
+            $data['store_id'] = (int)$product->getStoreId();
+
+            $data[$this->metadata->getLinkField()] = (int)$product->getData($this->metadata->getLinkField());
+
+            $this->resourceModel->insertGalleryValueInStore($data);
+        }
+    }
+
+    /**
+     * @param ProductInterface $product
      * @param string $mediaAttrCode
      * @param array $clearImages
      * @param array $newImages
      */
-    private function processMediaAttribute(
+    protected function processMediaAttribute(
         ProductInterface $product,
         string $mediaAttrCode,
         array $clearImages,
@@ -446,7 +586,7 @@ class Gallery
      * @param array $existImages
      * @return void
      */
-    private function processMediaAttributeLabel(
+    protected function processMediaAttributeLabel(
         ProductInterface $product,
         string $mediaAttrCode,
         array $clearImages,
@@ -480,6 +620,58 @@ class Gallery
                 $product->getData($mediaAttrCode . '_label'),
                 $product->getStoreId()
             );
+        }
+    }
+
+    /**
+     * @param ProductInterface $product
+     * @param array $image
+     * @return array
+     * @throws LocalizedException
+     */
+    protected function processNewImage(ProductInterface $product, array &$image): array
+    {
+        $data = [];
+
+        if (empty($image['value_id'])) {
+            $data['value'] = $image['file'];
+            $data['attribute_id'] = $this->getAttribute()->getAttributeId();
+
+            if (!empty($image['media_type'])) {
+                $data['media_type'] = $image['media_type'];
+            }
+
+            $image['value_id'] = $this->resourceModel->insertGallery($data);
+
+            $this->resourceModel->bindValueToEntity(
+                $image['value_id'],
+                $product->getData($this->metadata->getLinkField())
+            );
+        } elseif (!empty($image['recreate'])) {
+            $data['value_id'] = $image['value_id'];
+            $data['value'] = $image['file'];
+            $data['attribute_id'] = $this->getAttribute()->getAttributeId();
+
+            if (!empty($image['media_type'])) {
+                $data['media_type'] = $image['media_type'];
+            }
+
+            $this->resourceModel->saveDataRow(GalleryResource::GALLERY_TABLE, $data);
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param array $files
+     * @throws FileSystemException
+     */
+    protected function removeDeletedImages(array $files): void
+    {
+        $catalogPath = $this->mediaConfig->getBaseMediaPath();
+
+        foreach ($files as $filePath) {
+            $this->mediaDirectory->delete($catalogPath . '/' . $filePath);
         }
     }
 }

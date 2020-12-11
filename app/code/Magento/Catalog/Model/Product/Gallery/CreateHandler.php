@@ -7,66 +7,57 @@ declare(strict_types=1);
 
 namespace Magento\Catalog\Model\Product\Gallery;
 
-use Magento\Catalog\Api\Data\ProductInterface;
-use Magento\Catalog\Api\ProductAttributeRepositoryInterface;
-use Magento\Catalog\Model\Product\Media\Config;
 use Magento\Catalog\Model\ResourceModel\Product\Gallery;
-use Magento\Framework\EntityManager\MetadataPool;
+use Magento\Catalog\Helper\Product\Gallery as GalleryHelper;
 use Magento\Framework\EntityManager\Operation\ExtensionInterface;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
-use Magento\Framework\Filesystem;
 use Magento\Framework\Serialize\Serializer\Json;
-use Magento\MediaStorage\Helper\File\Storage\Database;
-use Magento\Store\Model\StoreManagerInterface;
 
 /**
- * Create handler for catalog product gallery
- *
- * @api
- *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
- * @since 101.0.0
  */
-class CreateHandler extends Handler implements ExtensionInterface
+class CreateHandler implements ExtensionInterface
 {
+    /**
+     * @var Gallery
+     */
+    protected $resourceModel;
+
+    /**
+     * @var GalleryHelper
+     */
+    protected $galleryHelper;
+
+    /**
+     * @var Json
+     */
+    protected $json;
+
+    /**
+     * @param Gallery $resourceModel
+     * @param GalleryHelper $galleryHelper
+     * @param Json $json
+     */
     public function __construct(
-        MetadataPool $metadataPool,
-        ProductAttributeRepositoryInterface $attributeRepository,
         Gallery $resourceModel,
-        Json $json,
-        Config $mediaConfig,
-        Filesystem $filesystem,
-        Database $fileStorageDb,
-        StoreManagerInterface $storeManager = null
+        GalleryHelper $galleryHelper,
+        Json $json
     ) {
-        parent::__construct(
-            $metadataPool,
-            $attributeRepository,
-            $resourceModel,
-            $json,
-            $mediaConfig,
-            $filesystem,
-            $fileStorageDb,
-            $storeManager
-        );
+        $this->resourceModel = $resourceModel;
+        $this->galleryHelper = $galleryHelper;
+        $this->json = $json;
     }
 
     /**
-     * Execute create handler
-     *
-     * @param ProductInterface $product
+     * @param object $product
      * @param array $arguments
-     * @return ProductInterface
+     * @return bool|object
      * @throws LocalizedException
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
-     * @SuppressWarnings(PHPMD.NPathComplexity)
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
-     * @since 101.0.0
+     * @throws NoSuchEntityException
      */
     public function execute($product, $arguments = [])
     {
-        $attrCode = $this->getAttribute()->getAttributeCode();
+        $attrCode = $this->galleryHelper->getAttribute()->getAttributeCode();
 
         $value = $product->getData($attrCode);
 
@@ -75,7 +66,7 @@ class CreateHandler extends Handler implements ExtensionInterface
         }
 
         if (!is_array($value['images']) && strlen($value['images']) > 0) {
-            $value['images'] = $this->json->unserialize($value['images']); // 31121 Would like to validate that the switch here is compatible
+            $value['images'] = $this->json->unserialize($value['images']);
         }
 
         if (!is_array($value['images'])) {
@@ -89,7 +80,7 @@ class CreateHandler extends Handler implements ExtensionInterface
         if ($product->getIsDuplicate() != true) {
             foreach ($value['images'] as &$image) {
                 if (empty($image['value_id']) || !empty($image['recreate'])) {
-                    $newFile = $this->moveImageFromTmp($image['file']);
+                    $newFile = $this->galleryHelper->moveImageFromTmp($image['file']);
                     $image['new_file'] = $newFile;
                     $newImages[$image['file']] = $image;
                     $image['file'] = $newFile;
@@ -100,7 +91,7 @@ class CreateHandler extends Handler implements ExtensionInterface
             // For duplicating we need to copy the original images
             $duplicate = [];
             foreach ($value['images'] as &$image) {
-                if (!empty($image['removed']) && !$this->canRemoveImage($product, $image['file'])) {
+                if (!empty($image['removed']) && !$this->galleryHelper->canRemoveImage($product, $image['file'])) {
                     $image['removed'] = '';
                 }
 
@@ -108,7 +99,7 @@ class CreateHandler extends Handler implements ExtensionInterface
                     continue;
                 }
 
-                $duplicate[$image['value_id']] = $this->copyImage($image['file']);
+                $duplicate[$image['value_id']] = $this->galleryHelper->copyImage($image['file']);
                 $image['new_file'] = $duplicate[$image['value_id']];
                 $newImages[$image['file']] = $image;
                 $imagesNew[] = $image;
@@ -118,13 +109,13 @@ class CreateHandler extends Handler implements ExtensionInterface
         }
 
         if (!empty($value['images'])) {
-            $this->processMediaAttributes($product, [], $newImages, []);
+            $this->galleryHelper->processMediaAttributes($product, [], $newImages, []);
         }
 
         $product->setData($attrCode, $value);
 
         if ($product->getIsDuplicate() == true) {
-            $this->duplicate($product);
+            $this->galleryHelper->duplicate($product);
             return $product;
         }
 
@@ -132,69 +123,10 @@ class CreateHandler extends Handler implements ExtensionInterface
             return $product;
         }
 
-        $this->processNewImages($product, $imagesNew);
+        $this->galleryHelper->processNewImages($product, $imagesNew);
 
         $product->setData($attrCode, $value);
 
         return $product;
-    }
-
-    /**
-     * Process images
-     *
-     * @param ProductInterface $product
-     * @param array $images
-     * @return void
-     * @throws NoSuchEntityException
-     * @throws LocalizedException
-     * @since 101.0.0
-     */
-    protected function processNewImages(ProductInterface $product, array &$images): void
-    {
-        foreach ($images as &$image) {
-            $data = $this->processNewImage($product, $image);
-
-            // Add per store labels, position, disabled
-            $data['value_id'] = $image['value_id'];
-            $data['label'] = isset($image['label']) ? $image['label'] : '';
-            $data['position'] = isset($image['position']) ? (int)$image['position'] : 0;
-            $data['disabled'] = isset($image['disabled']) ? (int)$image['disabled'] : 0;
-            $data['store_id'] = (int)$product->getStoreId();
-
-            $data[$this->metadata->getLinkField()] = (int)$product->getData($this->metadata->getLinkField());
-
-            $this->resourceModel->insertGalleryValueInStore($data);
-        }
-    }
-
-    /**
-     * Processes image as new
-     *
-     * @param ProductInterface $product
-     * @param array $image
-     * @return array
-     * @throws NoSuchEntityException
-     * @throws LocalizedException
-     * @since 101.0.0
-     */
-    protected function processNewImage(ProductInterface $product, array &$image): array
-    {
-        $data = [];
-
-        $data['value'] = $image['file'];
-        $data['attribute_id'] = $this->getAttribute()->getAttributeId();
-
-        if (!empty($image['media_type'])) {
-            $data['media_type'] = $image['media_type'];
-        }
-
-        $image['value_id'] = $this->resourceModel->insertGallery($data);
-
-        $this->resourceModel->bindValueToEntity(
-            $image['value_id'],
-            $product->getData($this->metadata->getLinkField())
-        );
-
-        return $data;
     }
 }
