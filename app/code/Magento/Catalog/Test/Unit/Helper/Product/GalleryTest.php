@@ -15,6 +15,7 @@ use Magento\Catalog\Model\ResourceModel\Eav\Attribute;
 use Magento\Catalog\Model\ResourceModel\Product\Gallery as GalleryResource;
 use Magento\Framework\EntityManager\EntityMetadata;
 use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\Filesystem\Directory\Write;
 use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
 use Magento\MediaStorage\Helper\File\Storage\Database;
@@ -433,7 +434,7 @@ class GalleryTest extends TestCase
     /**
      * @param $imagesReturn
      * @throws LocalizedException
-     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @throws NoSuchEntityException
      *
      * @dataProvider getTestDuplicateDataProvider
      */
@@ -463,6 +464,9 @@ class GalleryTest extends TestCase
                 ->method('getData')
                 ->with('media_gallery')
                 ->willReturn([]);
+
+            $attributeMock->expects($this->never())
+                ->method('getAttributeId');
         } else {
             $productMock->expects($this->exactly(2))
                 ->method('getData')
@@ -487,6 +491,41 @@ class GalleryTest extends TestCase
         }
 
         $this->subject->duplicate($productMock);
+    }
+
+    /**
+     * @throws NoSuchEntityException
+     */
+    public function testGetAttribute(): void
+    {
+        $this->attributeRepositoryMock->expects($this->once())
+            ->method('get')
+            ->with('media_gallery');
+
+        $this->subject->getAttribute();
+    }
+
+    /**
+     * @return array
+     */
+    public function getGetFilenameFromTmpProvider(): array
+    {
+        return [
+            ['test.jpg.tmp'],
+            ['test.jpg']
+        ];
+    }
+
+    /**
+     * @param $fileName
+     *
+     * @dataProvider getGetFilenameFromTmpProvider
+     */
+    public function testGetFilenameFromTmp($fileName): void
+    {
+        $return = $this->subject->getFilenameFromTmp($fileName);
+
+        $this->assertEquals('test.jpg', $return);
     }
 
     /**
