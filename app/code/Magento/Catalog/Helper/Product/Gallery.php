@@ -216,34 +216,6 @@ class Gallery
 
     /**
      * @param ProductInterface $product
-     * @param array $images
-     * @throws LocalizedException
-     */
-    private function deleteMediaAttributeValues(ProductInterface $product, array $images): void
-    {
-        if ($images) {
-            $values = $this->attributeValue->getValues(
-                ProductInterface::class,
-                (int)$product->getData($this->metadata->getLinkField()),
-                $this->mediaConfig->getMediaAttributeCodes()
-            );
-            $valuesToDelete = [];
-            foreach ($values as $value) {
-                if (in_array($value['value'], $images, true)) {
-                    $valuesToDelete[] = $value;
-                }
-            }
-            if ($valuesToDelete) {
-                $this->attributeValue->deleteValues(
-                    ProductInterface::class,
-                    $valuesToDelete
-                );
-            }
-        }
-    }
-
-    /**
-     * @param ProductInterface $product
      * @throws LocalizedException
      * @throws NoSuchEntityException
      */
@@ -526,6 +498,34 @@ class Gallery
             $data[$this->metadata->getLinkField()] = (int)$product->getData($this->metadata->getLinkField());
 
             $this->resourceModel->insertGalleryValueInStore($data);
+        }
+    }
+
+    /**
+     * @param ProductInterface $product
+     * @param array $images
+     * @throws LocalizedException
+     */
+    protected function deleteMediaAttributeValues(ProductInterface $product, array $images): void
+    {
+        if ($images) {
+            $values = $this->attributeValue->getValues(
+                ProductInterface::class,
+                (int)$product->getData($this->metadata->getLinkField()),
+                $this->mediaConfig->getMediaAttributeCodes()
+            );
+            $valuesToDelete = [];
+            foreach ($values as $value) {
+                if (in_array($value['value'], $images, true)) {
+                    $valuesToDelete[] = $value;
+                }
+            }
+            if ($valuesToDelete) {
+                $this->attributeValue->deleteValues(
+                    ProductInterface::class,
+                    $valuesToDelete
+                );
+            }
         }
     }
 

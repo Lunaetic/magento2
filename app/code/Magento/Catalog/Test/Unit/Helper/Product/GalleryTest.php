@@ -9,8 +9,11 @@ namespace Magento\Catalog\Test\Unit\Helper\Product;
 
 use Magento\Catalog\Helper\Product\Gallery;
 use Magento\Catalog\Model\Product;
+use Magento\Catalog\Model\Product\Attribute\Repository;
 use Magento\Catalog\Model\Product\Media\Config;
+use Magento\Catalog\Model\ResourceModel\Eav\Attribute;
 use Magento\Catalog\Model\ResourceModel\Product\Gallery as GalleryResource;
+use Magento\Framework\EntityManager\EntityMetadata;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Filesystem\Directory\Write;
 use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
@@ -57,6 +60,16 @@ class GalleryTest extends TestCase
     protected $fileStorageDbMock;
 
     /**
+     * @var Repository|MockObject
+     */
+    protected $attributeRepositoryMock;
+
+    /**
+     * @var EntityMetadata|MockObject
+     */
+    protected $metadataMock;
+
+    /**
      */
     public function setUp(): void
     {
@@ -72,7 +85,7 @@ class GalleryTest extends TestCase
 
         $this->resourceModelMock = $this->createPartialMock(
             GalleryResource::class,
-            ['countImageUses', 'getProductImages']
+            ['countImageUses', 'getProductImages', 'duplicate']
         );
 
         $this->storeManageMock = $this->createPartialMock(
@@ -85,6 +98,16 @@ class GalleryTest extends TestCase
             ['checkDbUsage', 'copyFile']
         );
 
+        $this->attributeRepositoryMock = $this->createPartialMock(
+            Repository::class,
+            ['get']
+        );
+
+        $this->metadataMock = $this->createPartialMock(
+            EntityMetadata::class,
+            ['getLinkField']
+        );
+
         $objectManager = new ObjectManager($this);
 
         $this->subject = $objectManager->getObject(
@@ -94,7 +117,9 @@ class GalleryTest extends TestCase
                 'mediaDirectory' => $this->mediaDirectoryMock,
                 'resourceModel' => $this->resourceModelMock,
                 'storeManager' => $this->storeManageMock,
-                'fileStorageDb' => $this->fileStorageDbMock
+                'fileStorageDb' => $this->fileStorageDbMock,
+                'attributeRepository' => $this->attributeRepositoryMock,
+                'metadata' => $this->metadataMock
             ]
         );
     }
@@ -390,6 +415,78 @@ class GalleryTest extends TestCase
         $actual = $this->subject->copyImage('test.jpg');
 
         $this->assertEquals($actual, 'test.jpg');
+    }
+
+    /**
+     * @return array
+     */
+    public function getTestDuplicateDataProvider(): array
+    {
+        return [
+            [null],
+            [
+                ['images' => []]
+            ]
+        ];
+    }
+
+    /**
+     * @param $imagesReturn
+     * @throws LocalizedException
+     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     *
+     * @dataProvider getTestDuplicateDataProvider
+     */
+    public function testDuplicate($imagesReturn): void
+    {
+        $attributeMock = $this->createPartialMock(
+            Attribute::class,
+            ['getAttributeCode', 'getAttributeId']
+        );
+
+        $productMock = $this->createPartialMock(
+            Product::class,
+            ['getData', 'getOriginalLinkId']
+        );
+
+        $this->attributeRepositoryMock->expects($this->once())
+            ->method('get')
+            ->with('media_gallery')
+            ->willReturn($attributeMock);
+
+        $attributeMock->expects($this->once())
+            ->method('getAttributeCode')
+            ->willReturn('media_gallery');
+
+        if (!isset($imagesReturn['images'])) {
+            $productMock->expects($this->once())
+                ->method('getData')
+                ->with('media_gallery')
+                ->willReturn([]);
+        } else {
+            $productMock->expects($this->exactly(2))
+                ->method('getData')
+                ->withConsecutive(['media_gallery'], ['link_field'])
+                ->willReturnOnConsecutiveCalls($imagesReturn, 'link_field');
+
+            $attributeMock->expects($this->once())
+                ->method('getAttributeId')
+                ->willReturn(42);
+
+            $productMock->expects($this->once())
+                ->method('getOriginalLinkId')
+                ->willReturn(23);
+
+            $this->metadataMock->expects($this->once())
+                ->method('getLinkField')
+                ->willReturn('link_field');
+
+            $this->resourceModelMock->expects($this->once())
+                ->method('duplicate')
+                ->with(42, [], 23, 'link_field');
+        }
+
+        $this->subject->duplicate($productMock);
     }
 
     /**
