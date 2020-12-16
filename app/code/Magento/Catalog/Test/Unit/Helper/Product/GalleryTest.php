@@ -53,7 +53,7 @@ class GalleryTest extends TestCase
     /**
      * @var StoreManager|MockObject
      */
-    protected $storeManageMock;
+    protected $storeManagerMock;
 
     /**
      * @var Database|MockObject
@@ -89,7 +89,7 @@ class GalleryTest extends TestCase
             ['countImageUses', 'getProductImages', 'duplicate']
         );
 
-        $this->storeManageMock = $this->createPartialMock(
+        $this->storeManagerMock = $this->createPartialMock(
             StoreManager::class,
             ['getStores']
         );
@@ -117,7 +117,7 @@ class GalleryTest extends TestCase
                 'mediaConfig' => $this->mediaConfigMock,
                 'mediaDirectory' => $this->mediaDirectoryMock,
                 'resourceModel' => $this->resourceModelMock,
-                'storeManager' => $this->storeManageMock,
+                'storeManager' => $this->storeManagerMock,
                 'fileStorageDb' => $this->fileStorageDbMock,
                 'attributeRepository' => $this->attributeRepositoryMock,
                 'metadata' => $this->metadataMock
@@ -227,7 +227,7 @@ class GalleryTest extends TestCase
             ['getId', 'getWebsiteId']
         );
 
-        $this->storeManageMock->expects($this->exactly(2))
+        $this->storeManagerMock->expects($this->exactly(2))
             ->method('getStores')
             ->willReturnCallback(function () use ($includeStoreId2, $storeMock) {
                 if (!$includeStoreId2) {
@@ -303,7 +303,7 @@ class GalleryTest extends TestCase
                 'mediaConfig' => $this->mediaConfigMock,
                 'mediaDirectory' => $this->mediaDirectoryMock,
                 'resourceModel' => $this->resourceModelMock,
-                'storeManager' => $this->storeManageMock,
+                'storeManager' => $this->storeManagerMock,
                 'fileStorageDb' => $this->fileStorageDbMock
             ]
         );
@@ -365,7 +365,7 @@ class GalleryTest extends TestCase
                 'mediaConfig' => $this->mediaConfigMock,
                 'mediaDirectory' => $this->mediaDirectoryMock,
                 'resourceModel' => $this->resourceModelMock,
-                'storeManager' => $this->storeManageMock,
+                'storeManager' => $this->storeManagerMock,
                 'fileStorageDb' => $this->fileStorageDbMock
             ]
         );
@@ -526,6 +526,26 @@ class GalleryTest extends TestCase
         $return = $this->subject->getFilenameFromTmp($fileName);
 
         $this->assertEquals('test.jpg', $return);
+    }
+
+    /**
+     */
+    public function testGetImagesForAllStores(): void
+    {
+        $productMock = $this->createMock(Product::class);
+
+        $storeMock = $this->createMock(Store::class);
+
+        $this->storeManagerMock->expects($this->once())
+            ->method('getStores')
+            ->willReturn([1 => $storeMock]);
+
+        $this->resourceModelMock->expects($this->once())
+            ->method('getProductImages')
+            ->with($productMock, [1, 0])
+            ->willReturn(['images']);
+
+        $this->subject->getImagesForAllStores($productMock);
     }
 
     /**
