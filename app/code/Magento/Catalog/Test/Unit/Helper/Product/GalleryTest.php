@@ -559,8 +559,59 @@ class GalleryTest extends TestCase
         $this->subject->getMediaAttributeCodes();
     }
 
-    public function testGetMediaAttributeStoreValue(): void
+    /**
+     * @return array
+     */
+    public function getMediaAttributeStoreValueProvider()
     {
+        return [
+            [
+                1,
+                'test_attribute',
+                'test.jpg'
+            ],
+            [
+                1,
+                'bad_attribute',
+                null
+            ],
+            [
+                2,
+                'test_attribute',
+                null
+            ],
+        ];
+    }
+
+    /**
+     * @param $storeId
+     * @param $attributeCode
+     * @param $return
+     *
+     * @dataProvider getMediaAttributeStoreValueProvider
+     */
+    public function testGetMediaAttributeStoreValue($storeId, $attributeCode, $return): void
+    {
+        $productMock = $this->createMock(Product::class);
+
+        $storeMock = $this->createMock(Store::class);
+
+        $this->storeManagerMock->expects($this->once())
+            ->method('getStores')
+            ->willReturn([1 => $storeMock]);
+
+        $this->resourceModelMock->expects($this->once())
+            ->method('getProductImages')
+            ->with($productMock, [1, 0])
+            ->willReturn(['images' => [
+                'attribute_code' => 'test_attribute',
+                'store_id' => 1,
+                'filepath' => 'test.jpg'
+            ]]);
+
+        $actual = $this->subject->getMediaAttributeStoreValue($productMock, $attributeCode, $storeId);
+
+        $this->assertEquals($return, $actual);
     }
 
     public function testGetSafeFilename(): void
