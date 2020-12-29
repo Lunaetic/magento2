@@ -14,6 +14,7 @@ use Magento\Catalog\Model\Product\Media\Config;
 use Magento\Catalog\Model\ResourceModel\Eav\Attribute;
 use Magento\Catalog\Model\ResourceModel\Product\Gallery as GalleryResource;
 use Magento\Framework\EntityManager\EntityMetadata;
+use Magento\Framework\Exception\FileSystemException;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\Filesystem\Directory\Write;
@@ -77,12 +78,12 @@ class GalleryTest extends TestCase
     {
         $this->mediaConfigMock = $this->createPartialMock(
             Config::class,
-            ['getBaseMediaPath', 'getMediaPath', 'getMediaShortUrl', 'getMediaAttributeCodes']
+            ['getBaseMediaPath', 'getMediaPath', 'getMediaShortUrl', 'getMediaAttributeCodes', 'getBaseMediaUrlAddition', 'getTmpMediaShortUrl', 'getTmpMediaPath']
         );
 
         $this->mediaDirectoryMock = $this->createPartialMock(
             Write::class,
-            ['isFile', 'getAbsolutePath', 'delete', 'copyFile', 'getDriver']
+            ['isFile', 'getAbsolutePath', 'delete', 'copyFile', 'getDriver', 'renameFile']
         );
 
         $this->resourceModelMock = $this->createPartialMock(
@@ -97,7 +98,7 @@ class GalleryTest extends TestCase
 
         $this->fileStorageDbMock = $this->createPartialMock(
             Database::class,
-            ['checkDbUsage', 'copyFile']
+            ['checkDbUsage', 'copyFile', 'getUniqueFileName', 'renameFile']
         );
 
         $this->attributeRepositoryMock = $this->createPartialMock(
@@ -295,7 +296,7 @@ class GalleryTest extends TestCase
     {
         $this->subject = $this->createPartialMock(
             Gallery::class,
-            ['getUniqueFilename']
+            ['getUniqueFileName']
         );
 
         $this->setPropertyValues(
@@ -334,14 +335,8 @@ class GalleryTest extends TestCase
     public function getCopyImageDataProvider(): array
     {
         return [
-            [
-                true,
-                2
-            ],
-            [
-                false,
-                3
-            ]
+            [true, 2],
+            [false, 3]
         ];
     }
 
@@ -357,7 +352,7 @@ class GalleryTest extends TestCase
     {
         $this->subject = $this->createPartialMock(
             Gallery::class,
-            ['getUniqueFilename']
+            ['getUniqueFileName']
         );
 
         $this->setPropertyValues(
@@ -372,7 +367,7 @@ class GalleryTest extends TestCase
         );
 
         $this->subject->expects($this->once())
-            ->method('getUniqueFilename')
+            ->method('getUniqueFileName')
             ->willReturn('test.jpg');
 
         $this->mediaConfigMock->expects($this->exactly($getMediaPathTimes))
@@ -649,12 +644,184 @@ class GalleryTest extends TestCase
         $this->assertEquals('/test.jpg', $actual);
     }
 
-    public function testGetUniqueFileName(): void
+    /**
+     * @return array
+     */
+    public function getUniqueFileNameProvider(): array
     {
+        return [
+            ['/media/tmp.jpg', true, true],
+            ['/media/tmp.jpg', false, true],
+            ['/media/tmp.jpg', false, false]
+        ];
     }
 
-    public function testMoveImageFromTmp(): void
+    /**
+     * @param $dbUsage
+     * @param $forTmp
+     * @throws ReflectionException
+     *
+     * @dataProvider getUniqueFileNameProvider
+     */
+    public function testGetUniqueFileName($dbUsage, $forTmp): void
     {
+        $this->subject = $this->createPartialMock(
+            Gallery::class,
+            ['getNewFileName']
+        );
+
+        $this->setPropertyValues(
+            $this->subject,
+            [
+                'mediaConfig' => $this->mediaConfigMock,
+                'mediaDirectory' => $this->mediaDirectoryMock,
+                'resourceModel' => $this->resourceModelMock,
+                'storeManager' => $this->storeManagerMock,
+                'fileStorageDb' => $this->fileStorageDbMock
+            ]
+        );
+
+        $this->fileStorageDbMock->expects($this->once())
+            ->method('checkDbUsage')
+            ->willReturn($dbUsage);
+
+        if ($dbUsage) {
+            $this->mediaConfigMock->expects($this->once())
+                ->method('getBaseMediaUrlAddition')
+                ->willReturn('/base/');
+
+            $this->fileStorageDbMock->expects($this->once())
+                ->method('getUniqueFileName')
+                ->with('/base/', 'tmp.jpg')
+                ->willReturn('/base/tmp.jpg');
+        } else {
+            if ($forTmp) {
+                $this->mediaConfigMock->expects($this->once())
+                    ->method('getTmpMediaPath')
+                    ->with('tmp.jpg')
+                    ->willReturn('tmp.jpg');
+            } else {
+                $this->mediaConfigMock->expects($this->once())
+                    ->method('getMediaPath')
+                    ->with('tmp.jpg')
+                    ->willReturn('tmp.jpg');
+            }
+
+            $this->mediaDirectoryMock->expects($this->once())
+                ->method('getAbsolutePath')
+                ->with('tmp.jpg')
+                ->willReturn('tmp.jpg');
+
+            $this->subject->expects($this->once())
+                ->method('getNewFileName')
+                ->with('tmp.jpg');
+        }
+
+        $this->subject->getUniqueFileName('tmp.jpg', $forTmp);
+    }
+
+    /**
+     * @return array
+     */
+    public function getMoveImageFromTmpProvider(): array
+    {
+        return [
+            [true],
+            [false]
+        ];
+    }
+
+    /**
+     * @param $dbUsage
+     * @throws FileSystemException
+     * @throws ReflectionException
+     *
+     * @dataProvider getMoveImageFromTmpProvider
+     */
+    public function testMoveImageFromTmp($dbUsage): void
+    {
+        $this->subject = $this->createPartialMock(
+            Gallery::class,
+            ['getUniqueFileName']
+        );
+
+        $this->setPropertyValues(
+            $this->subject,
+            [
+                'mediaConfig' => $this->mediaConfigMock,
+                'mediaDirectory' => $this->mediaDirectoryMock,
+                'resourceModel' => $this->resourceModelMock,
+                'storeManager' => $this->storeManagerMock,
+                'fileStorageDb' => $this->fileStorageDbMock
+            ]
+        );
+
+        $driverMock = $this->createMock(DriverInterface::class);
+
+        $this->mediaDirectoryMock->expects($this->once())
+            ->method('getDriver')
+            ->willReturn($driverMock);
+
+        $driverMock->expects($this->once())
+            ->method('getRealPathSafety')
+            ->with('/test.jpg.tmp')
+            ->willReturn('test.jpg.tmp');
+
+        $this->subject->expects($this->once())
+            ->method('getUniqueFileName')
+            ->with('test.jpg')
+            ->willReturn('test-uniq.jpg');
+
+        $this->fileStorageDbMock->expects($this->any())
+            ->method('checkDbUsage')
+            ->willReturn($dbUsage);
+
+        if ($dbUsage) {
+            $this->mediaConfigMock->expects($this->once())
+                ->method('getMediaShortUrl')
+                ->with('test-uniq.jpg')
+                ->willReturn('/media/test-uniq.jpg');
+
+            $this->mediaConfigMock->expects($this->once())
+                ->method('getTmpMediaShortUrl')
+                ->with('test.jpg')
+                ->willReturn('/media/tmp/test.jpg');
+
+            $this->mediaConfigMock->expects($this->once())
+                ->method('getTmpMediaPath')
+                ->with('test.jpg')
+                ->willReturn('/tmp/media/test.jpg');
+
+            $this->mediaConfigMock->expects($this->once())
+                ->method('getMediaPath')
+                ->with('test-uniq.jpg')
+                ->willReturn('/media/test-uniq.jpg');
+
+            $this->fileStorageDbMock->expects($this->once())
+                ->method('renameFile')
+                ->with('/media/tmp/test.jpg', '/media/test-uniq.jpg')
+                ->willReturn('');
+
+            $this->mediaDirectoryMock->expects($this->exactly(2))
+                ->method('delete')
+                ->withConsecutive([]);
+        } else {
+            $this->mediaDirectoryMock->expects($this->once())
+                ->method('renameFile')
+                ->with('/tmp/media/test.jpg', '/media/test-uniq.jpg');
+
+            $this->mediaConfigMock->expects($this->once())
+                ->method('getTmpMediaPath')
+                ->with('test.jpg')
+                ->willReturn('/tmp/media/test.jpg');
+
+            $this->mediaConfigMock->expects($this->once())
+                ->method('getMediaPath')
+                ->with('test-uniq.jpg')
+                ->willReturn('/media/test-uniq.jpg');
+        }
+
+        $this->subject->moveImageFromTmp('test.jpg.tmp');
     }
 
     public function testProcessDeletedImages(): void
@@ -676,8 +843,6 @@ class GalleryTest extends TestCase
     public function testDeleteMediaAttributeValues(): void
     {
     }
-
-
 
     /**
      * @param $object
