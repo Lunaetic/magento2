@@ -17,6 +17,7 @@ use Magento\Framework\EntityManager\EntityMetadata;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\Filesystem\Directory\Write;
+use Magento\Framework\Filesystem\DriverInterface;
 use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
 use Magento\MediaStorage\Helper\File\Storage\Database;
 use Magento\Store\Model\Store;
@@ -81,7 +82,7 @@ class GalleryTest extends TestCase
 
         $this->mediaDirectoryMock = $this->createPartialMock(
             Write::class,
-            ['isFile', 'getAbsolutePath', 'delete', 'copyFile']
+            ['isFile', 'getAbsolutePath', 'delete', 'copyFile', 'getDriver']
         );
 
         $this->resourceModelMock = $this->createPartialMock(
@@ -415,7 +416,7 @@ class GalleryTest extends TestCase
 
         $actual = $this->subject->copyImage('test.jpg');
 
-        $this->assertEquals($actual, 'test.jpg');
+        $this->assertEquals('test.jpg', $actual);
     }
 
     /**
@@ -562,7 +563,7 @@ class GalleryTest extends TestCase
     /**
      * @return array
      */
-    public function getMediaAttributeStoreValueProvider()
+    public function getMediaAttributeStoreValueProvider(): array
     {
         return [
             [
@@ -614,12 +615,38 @@ class GalleryTest extends TestCase
         $this->assertEquals($return, $actual);
     }
 
-    public function testGetSafeFilename(): void
+    /**
+     * @return array
+     */
+    public function getSafeFilenameProvider(): array
     {
+        return [
+            ['test.jpg'],
+            ['/test.jpg']
+        ];
     }
 
-    public function testGetNewFileName(): void
+    /**
+     * @param $in
+     *
+     * @dataProvider getSafeFilenameProvider
+     */
+    public function testGetSafeFilename($in): void
     {
+        $driverMock = $this->createMock(DriverInterface::class);
+
+        $this->mediaDirectoryMock->expects($this->once())
+            ->method('getDriver')
+            ->willReturn($driverMock);
+
+        $driverMock->expects($this->once())
+            ->method('getRealPathSafety')
+            ->with('/test.jpg')
+            ->willReturn('/test.jpg');
+
+        $actual = $this->subject->getSafeFilename($in);
+
+        $this->assertEquals('/test.jpg', $actual);
     }
 
     public function testGetUniqueFileName(): void
