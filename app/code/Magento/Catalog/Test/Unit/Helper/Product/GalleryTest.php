@@ -76,7 +76,7 @@ class GalleryTest extends TestCase
     {
         $this->mediaConfigMock = $this->createPartialMock(
             Config::class,
-            ['getBaseMediaPath', 'getMediaPath', 'getMediaShortUrl']
+            ['getBaseMediaPath', 'getMediaPath', 'getMediaShortUrl', 'getMediaAttributeCodes']
         );
 
         $this->mediaDirectoryMock = $this->createPartialMock(
@@ -547,6 +547,59 @@ class GalleryTest extends TestCase
 
         $this->subject->getImagesForAllStores($productMock);
     }
+
+    /**
+     */
+    public function testGetMediaAttributeCodes(): void
+    {
+        $this->mediaConfigMock->expects($this->once())
+            ->method('getMediaAttributeCodes')
+            ->willReturn(['media_gallery']);
+
+        $this->subject->getMediaAttributeCodes();
+    }
+
+    public function testGetMediaAttributeStoreValue(): void
+    {
+    }
+
+    public function testGetSafeFilename(): void
+    {
+    }
+
+    public function testGetNewFileName(): void
+    {
+    }
+
+    public function testGetUniqueFileName(): void
+    {
+    }
+
+    public function testMoveImageFromTmp(): void
+    {
+    }
+
+    public function testProcessDeletedImages(): void
+    {
+    }
+
+    public function testProcessExistingImages(): void
+    {
+    }
+
+    public function testProcessMediaAttributes(): void
+    {
+    }
+
+    public function testProcessNewImages(): void
+    {
+    }
+
+    public function testDeleteMediaAttributeValues(): void
+    {
+    }
+
+
 
     /**
      * @param $object
