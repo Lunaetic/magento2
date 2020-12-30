@@ -88,7 +88,7 @@ class GalleryTest extends TestCase
 
         $this->resourceModelMock = $this->createPartialMock(
             GalleryResource::class,
-            ['countImageUses', 'getProductImages', 'duplicate']
+            ['countImageUses', 'getProductImages', 'duplicate', 'deleteGallery', 'loadDataFromTableByValueId', 'updateGalleryValueInStore']
         );
 
         $this->storeManagerMock = $this->createPartialMock(
@@ -799,12 +799,11 @@ class GalleryTest extends TestCase
 
             $this->fileStorageDbMock->expects($this->once())
                 ->method('renameFile')
-                ->with('/media/tmp/test.jpg', '/media/test-uniq.jpg')
-                ->willReturn('');
+                ->with('/media/tmp/test.jpg', '/media/test-uniq.jpg');
 
             $this->mediaDirectoryMock->expects($this->exactly(2))
                 ->method('delete')
-                ->withConsecutive([]);
+                ->withConsecutive(['/tmp/media/test.jpg'], ['/media/test-uniq.jpg']);
         } else {
             $this->mediaDirectoryMock->expects($this->once())
                 ->method('renameFile')
@@ -824,23 +823,177 @@ class GalleryTest extends TestCase
         $this->subject->moveImageFromTmp('test.jpg.tmp');
     }
 
+    /**
+     * @throws LocalizedException
+     * @throws ReflectionException
+     */
     public function testProcessDeletedImages(): void
     {
+        $this->subject = $this->createPartialMock(
+            Gallery::class,
+            ['canDeleteImage', 'deleteMediaAttributeValues', 'removeDeletedImages']
+        );
+
+        $this->setPropertyValues(
+            $this->subject,
+            [
+                'mediaConfig' => $this->mediaConfigMock,
+                'mediaDirectory' => $this->mediaDirectoryMock,
+                'resourceModel' => $this->resourceModelMock,
+                'storeManager' => $this->storeManagerMock,
+                'fileStorageDb' => $this->fileStorageDbMock
+            ]
+        );
+
+        $productMock = $this->createMock(Product::class);
+
+        $images = [
+            [
+                'value_id' => '1',
+                'file' => '/one.jpg'
+            ],
+            [
+                'removed' => true,
+                'file' => '/two.jpg'
+            ],
+            [
+                'removed' => true,
+                'value_id' => '3',
+                'file' => '/three.jpg'
+            ],
+            [
+                'removed' => true,
+                'value_id' => '4',
+                'file' => '/four.jpg'
+            ]
+        ];
+
+        $this->subject->expects($this->exactly(2))
+            ->method('canDeleteImage')
+            ->withConsecutive(['/three.jpg'], ['/four.jpg'])
+            ->willReturnOnConsecutiveCalls(true, false);
+
+        $this->subject->expects($this->once())
+            ->method('deleteMediaAttributeValues')
+            ->with($productMock, ['/three.jpg', '/four.jpg']);
+
+        $this->resourceModelMock->expects($this->once())
+            ->method('deleteGallery')
+            ->with(['3', '4']);
+
+        $this->subject->expects($this->once())
+            ->method('removeDeletedImages')
+            ->with(['three.jpg']);
+
+        $this->subject->processDeletedImages($productMock, $images);
     }
 
-    public function testProcessExistingImages(): void
+    /**
+     * @return array
+     */
+    public function getProcessExistingImagesData(): array
     {
+        return [
+            [[
+                'value_id' => '1',
+                'label' => 'one',
+                'position' => 0,
+                'disabled' => 0
+            ]],
+            [[
+                'value_id' => '1',
+                'label' => 'two',
+                'position' => 0,
+                'disabled' => 0
+            ]]
+        ];
     }
 
+    /**
+     * @param $extantData
+     *
+     * @dataProvider getProcessExistingImagesData
+     */
+    public function testProcessExistingImages($extantData): void
+    {
+        $productMock = $this->createPartialMock(
+            Product::class,
+            ['getStoreId']
+        );
+
+        $images = [
+            [
+                'value_id' => '1',
+                'label' => 'one',
+                'position' => 0,
+                'disabled' => 0
+            ]
+        ];
+
+        $productMock->expects($this->any())
+            ->method('getStoreId')
+            ->willReturn(1);
+
+        $this->resourceModelMock->expects($this->once())
+            ->method('loadDataFromTableByValueId')
+            ->with(GalleryResource::GALLERY_VALUE_TABLE, ['1'], 1)
+            ->willReturn([$extantData]);
+
+        if ($extantData['label'] == 'two') {
+            $this->resourceModelMock->expects($this->once())
+                ->method('updateGalleryValueInStore')
+                ->with([
+                    'value_id' => '1',
+                    'label' => 'one',
+                    'position' => 0,
+                    'disabled' => 0,
+                    'store_id' => 1
+                ]);
+        }
+
+        $this->subject->processExistingImages($productMock, $images);
+    }
+
+    /**
+     * @throws ReflectionException
+     */
     public function testProcessMediaAttributes(): void
     {
+        $this->subject = $this->createPartialMock(
+            Gallery::class,
+            ['processMediaAttribute', 'processMediaAttributeLabel', 'getMediaAttributeCodes']
+        );
+
+        $this->setPropertyValues(
+            $this->subject,
+            [
+                'mediaConfig' => $this->mediaConfigMock,
+                'mediaDirectory' => $this->mediaDirectoryMock,
+                'resourceModel' => $this->resourceModelMock,
+                'storeManager' => $this->storeManagerMock,
+                'fileStorageDb' => $this->fileStorageDbMock
+            ]
+        );
+
+        $productMock = $this->createMock(Product::class);
+
+        $this->subject->expects($this->once())
+            ->method('getMediaAttributeCodes')
+            ->with()
+            ->willReturn(['test', 'image']);
+
+        $this->subject->expects($this->exactly(2))
+            ->method('processMediaAttribute')
+            ->withConsecutive([$productMock, 'test', ['clear'], ['new']], [$productMock, 'image', ['clear'], ['new']]);
+
+        $this->subject->expects($this->once())
+            ->method('processMediaAttributeLabel')
+            ->with($productMock, 'image', ['clear'], ['new'], ['exist']);
+
+        $this->subject->processMediaAttributes($productMock, ['exist'], ['new'], ['clear']);
     }
 
     public function testProcessNewImages(): void
-    {
-    }
-
-    public function testDeleteMediaAttributeValues(): void
     {
     }
 

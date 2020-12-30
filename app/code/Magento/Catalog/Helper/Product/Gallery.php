@@ -390,12 +390,6 @@ class Gallery
         $filesToDelete = [];
         $recordsToDelete = [];
         $imagesToDelete = [];
-        $imagesToNotDelete = []; // 31121 Due to refactoring, if they've made it here, this check isn't necessary; check below as well!
-        foreach ($images as $image) {
-            if (empty($image['removed'])) {
-                $imagesToNotDelete[] = $image['file'];
-            }
-        }
 
         foreach ($images as $image) {
             if (!empty($image['removed'])) {
@@ -404,11 +398,9 @@ class Gallery
                         continue;
                     }
                     $recordsToDelete[] = $image['value_id'];
-                    if (!in_array($image['file'], $imagesToNotDelete)) {
-                        $imagesToDelete[] = $image['file'];
-                        if ($this->canDeleteImage($image['file'])) {
-                            $filesToDelete[] = ltrim($image['file'], '/');
-                        }
+                    $imagesToDelete[] = $image['file'];
+                    if ($this->canDeleteImage($image['file'])) {
+                        $filesToDelete[] = ltrim($image['file'], '/');
                     }
                 }
             }
