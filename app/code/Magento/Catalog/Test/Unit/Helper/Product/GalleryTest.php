@@ -88,7 +88,7 @@ class GalleryTest extends TestCase
 
         $this->resourceModelMock = $this->createPartialMock(
             GalleryResource::class,
-            ['countImageUses', 'getProductImages', 'duplicate', 'deleteGallery', 'loadDataFromTableByValueId', 'updateGalleryValueInStore']
+            ['countImageUses', 'getProductImages', 'duplicate', 'deleteGallery', 'loadDataFromTableByValueId', 'updateGalleryValueInStore', 'insertGalleryValueInStore']
         );
 
         $this->storeManagerMock = $this->createPartialMock(
@@ -993,8 +993,79 @@ class GalleryTest extends TestCase
         $this->subject->processMediaAttributes($productMock, ['exist'], ['new'], ['clear']);
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function testProcessNewImages(): void
     {
+        $this->subject = $this->createPartialMock(
+            Gallery::class,
+            ['processNewImage']
+        );
+
+        $this->setPropertyValues(
+            $this->subject,
+            [
+                'mediaConfig' => $this->mediaConfigMock,
+                'mediaDirectory' => $this->mediaDirectoryMock,
+                'resourceModel' => $this->resourceModelMock,
+                'storeManager' => $this->storeManagerMock,
+                'fileStorageDb' => $this->fileStorageDbMock,
+                'metadata' => $this->metadataMock
+            ]
+        );
+
+        $productMock = $this->createMock(Product::class);
+
+        $this->subject->expects($this->once())
+            ->method('processNewImage')
+            ->with($productMock, [
+                'value_id' => '1',
+                'label' => 'one',
+                'position' => 1,
+                'disabled' => 0
+            ])
+            ->willReturn([
+                'value_id' => '1',
+                'label' => 'one',
+                'position' => 1,
+                'disabled' => 0
+            ]);
+
+        $productMock->expects($this->once())
+            ->method('getStoreId')
+            ->willReturn(1);
+
+        $this->metadataMock->expects($this->exactly(2))
+            ->method('getLinkField')
+            ->willReturn('link_field');
+
+        $productMock->expects($this->once())
+            ->method('getData')
+            ->with('link_field')
+            ->willReturn('42');
+
+        $this->resourceModelMock->expects($this->once())
+            ->method('insertGalleryValueInStore')
+            ->with([
+                'value_id' => '1',
+                'label' => 'one',
+                'position' => 1,
+                'disabled' => 0,
+                'store_id' => 1,
+                'link_field' => 42
+            ]);
+
+        $images = [
+            [
+                'value_id' => '1',
+                'label' => 'one',
+                'position' => 1,
+                'disabled' => 0
+            ]
+        ];
+
+        $this->subject->processNewImages($productMock, $images);
     }
 
     /**
